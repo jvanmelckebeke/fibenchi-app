@@ -14,9 +14,7 @@ Three planes, deliberately decoupled:
   (`v8/finance/chart/...`). No proxy, no AWS, no API key. A phone's
   residential/mobile IP is also less likely to be Yahoo-rate-limited than a
   datacenter would be. **This is the whole reason we went native instead of a
-  PWA** — the earlier PWA design (an AWS Lambda Yahoo-proxy) in
-  `../fibenchi/claudedocs/mobile-companion-pwa-design.md` is **obsolete; this file
-  supersedes it.**
+  PWA.**
 - **Compute plane — on device.** RSI / MACD / SMA / movement are computed in TS
   from OHLC. `movement-stats.ts` is ported ~verbatim from Fibenchi; `indicators.py`
   is ported to TS behind a data-driven registry (one struct per indicator).
