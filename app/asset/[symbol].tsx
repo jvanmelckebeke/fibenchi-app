@@ -9,6 +9,7 @@ import { StatTile } from '@/components/stat-tile';
 import { Text } from '@/components/ui/text';
 import { buildIndicatorSnapshot, computeMovementStats } from '@/lib/compute';
 import { useConfig } from '@/lib/config/provider';
+import { sessionLabel } from '@/lib/date';
 import { market, type IntradayResult, type OhlcBar, type Period } from '@/lib/market';
 import { THEME } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,10 @@ export default function AssetDetail() {
   const intradayPoints = intraday?.points.map((point) => point.price) ?? [];
   const lastIntraday = intradayPoints[intradayPoints.length - 1] ?? 0;
   const intradayUp = intraday ? lastIntraday >= intraday.previousClose : true;
+  const sessionDay =
+    intraday && intraday.points.length > 0
+      ? sessionLabel(intraday.points[intraday.points.length - 1].time)
+      : 'Today';
 
   return (
     <>
@@ -86,7 +91,7 @@ export default function AssetDetail() {
         {/* Today's trajectory */}
         {intraday && intradayPoints.length > 1 && (
           <View>
-            <Text className="mb-2 text-xs uppercase text-muted-foreground">Today</Text>
+            <Text className="mb-2 text-xs uppercase text-muted-foreground">{sessionDay}</Text>
             <IntradayChart
               points={intradayPoints}
               previousClose={intraday.previousClose}
