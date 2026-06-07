@@ -29,6 +29,7 @@ export default function RootLayout() {
               (so it gets a back button + native swipe-back, which a drawer can't). */}
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(drawer)" />
+            <Stack.Screen name="onboard" />
             <Stack.Screen name="asset/[symbol]" options={{ headerShown: true, title: '' }} />
           </Stack>
           <PortalHost />

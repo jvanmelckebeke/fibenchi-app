@@ -19,3 +19,11 @@ export function sessionLabel(epochSeconds: number, now: Date = new Date()): stri
   if (diffDays < 7) return WEEKDAYS[d.getDay()];
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
+
+/** Compact local date-time, e.g. "Jun 7, 14:30" (no Intl). */
+export function formatTimestamp(ms: number): string {
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${hh}:${mm}`;
+}

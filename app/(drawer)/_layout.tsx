@@ -6,6 +6,7 @@ export default function DrawerLayout() {
   return (
     <Drawer drawerContent={(props) => <GroupDrawer {...props} />}>
       <Drawer.Screen name="index" options={{ title: 'Fibenchi' }} />
+      <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
     </Drawer>
   );
 }
