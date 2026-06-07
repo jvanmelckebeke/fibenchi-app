@@ -2,12 +2,11 @@ import '@/global.css';
 
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
-import { Drawer } from 'expo-router/drawer';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { GroupDrawer } from '@/components/group-drawer';
 import { ConfigProvider } from '@/lib/config/provider';
 import { NAV_THEME } from '@/lib/theme';
 
@@ -26,9 +25,12 @@ export default function RootLayout() {
       <ThemeProvider value={NAV_THEME[scheme]}>
         <ConfigProvider>
           <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-          <Drawer drawerContent={(props) => <GroupDrawer {...props} />}>
-            <Drawer.Screen name="index" options={{ title: 'Fibenchi' }} />
-          </Drawer>
+          {/* Root stack: the drawer group is the home; asset detail pushes on top
+              (so it gets a back button + native swipe-back, which a drawer can't). */}
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(drawer)" />
+            <Stack.Screen name="asset/[symbol]" options={{ headerShown: true, title: '' }} />
+          </Stack>
           <PortalHost />
         </ConfigProvider>
       </ThemeProvider>
