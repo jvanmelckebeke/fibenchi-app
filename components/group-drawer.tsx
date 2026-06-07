@@ -24,6 +24,10 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
             onPress={() => {
               setActiveGroup(group.name);
               props.navigation.closeDrawer();
+              // Always return to the overview — otherwise picking a group from
+              // the Settings screen would just change the active group underneath
+              // it and leave you stuck on Settings.
+              router.navigate('/');
             }}
             className={cn(
               'mx-2 my-0.5 flex-row items-center justify-between rounded-lg px-3 py-3',
@@ -46,7 +50,7 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
         <Pressable
           onPress={() => {
             props.navigation.closeDrawer();
-            router.push('/settings');
+            router.navigate('/settings');
           }}
           className="my-0.5 rounded-lg px-3 py-3">
           <Text className="text-base text-muted-foreground">Settings</Text>
