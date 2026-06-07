@@ -1,52 +1,64 @@
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { useNavigation } from 'expo-router';
+import { useEffect, useMemo } from 'react';
+import { FlatList, RefreshControl, View } from 'react-native';
+
 import { Text } from '@/components/ui/text';
-import { Stack } from 'expo-router';
-import { MoonStarIcon, SunIcon } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { View } from 'react-native';
+import { TickerCard } from '@/components/ticker-card';
+import { useConfig } from '@/lib/config/provider';
+import { usePolledQuotes } from '@/stores/quotes';
 
-const SCREEN_OPTIONS = {
-  title: 'Fibenchi',
-  headerTransparent: true,
-  headerRight: () => <ThemeToggle />,
-};
+export default function Overview() {
+  const navigation = useNavigation();
+  const { config, loading, error, activeGroup, reload } = useConfig();
 
-export default function Screen() {
-  return (
-    <>
-      <Stack.Screen options={SCREEN_OPTIONS} />
-      <View className="flex-1 items-center justify-center gap-4 p-6">
-        <Text className="text-2xl font-semibold text-foreground">Fibenchi</Text>
-        <Text className="text-center text-sm text-muted-foreground">
-          Companion scaffold ready. The overview lands in a later epic.
+  const group = useMemo(
+    () => config?.groups?.find((candidate) => candidate.name === activeGroup) ?? null,
+    [config, activeGroup]
+  );
+  const symbols = group?.symbols ?? [];
+  const tickers = config?.tickers ?? {};
+
+  usePolledQuotes(symbols);
+
+  useEffect(() => {
+    navigation.setOptions({ title: activeGroup ?? 'Fibenchi' });
+  }, [navigation, activeGroup]);
+
+  if (loading && !config) {
+    return (
+      <Centered>
+        <Text className="text-muted-foreground">Loading…</Text>
+      </Centered>
+    );
+  }
+
+  if (error && !config) {
+    return (
+      <Centered>
+        <Text className="text-center text-loss">{error}</Text>
+        <Text className="mt-2 text-center text-xs text-muted-foreground">
+          Is the Fibenchi endpoint reachable from this device?
         </Text>
-        {/* Quick smoke-test that the finance color tokens resolve */}
-        <View className="flex-row gap-4">
-          <Text className="text-sm text-gain">▲ gain</Text>
-          <Text className="text-sm text-loss">▼ loss</Text>
-          <Text className="text-sm text-flat">— flat</Text>
-        </View>
-      </View>
-    </>
+      </Centered>
+    );
+  }
+
+  return (
+    <FlatList
+      data={symbols}
+      keyExtractor={(symbol) => symbol}
+      renderItem={({ item }) => <TickerCard symbol={item} name={tickers[item]?.name ?? item} />}
+      contentContainerStyle={{ paddingVertical: 8 }}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} />}
+      ListEmptyComponent={
+        <Centered>
+          <Text className="text-muted-foreground">No symbols in this group.</Text>
+        </Centered>
+      }
+    />
   );
 }
 
-const THEME_ICONS = {
-  light: SunIcon,
-  dark: MoonStarIcon,
-};
-
-function ThemeToggle() {
-  const { colorScheme, toggleColorScheme } = useColorScheme();
-
-  return (
-    <Button
-      onPressIn={toggleColorScheme}
-      size="icon"
-      variant="ghost"
-      className="ios:size-9 rounded-full web:mx-4">
-      <Icon as={THEME_ICONS[colorScheme ?? 'dark']} className="size-5" />
-    </Button>
-  );
+function Centered({ children }: { children: React.ReactNode }) {
+  return <View className="flex-1 items-center justify-center p-6">{children}</View>;
 }

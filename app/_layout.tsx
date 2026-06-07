@@ -1,11 +1,15 @@
 import '@/global.css';
 
-import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
-import { Stack } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { GroupDrawer } from '@/components/group-drawer';
+import { ConfigProvider } from '@/lib/config/provider';
+import { NAV_THEME } from '@/lib/theme';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -18,10 +22,16 @@ export default function RootLayout() {
   const scheme = colorScheme ?? 'dark';
 
   return (
-    <ThemeProvider value={NAV_THEME[scheme]}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack />
-      <PortalHost />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={NAV_THEME[scheme]}>
+        <ConfigProvider>
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <Drawer drawerContent={(props) => <GroupDrawer {...props} />}>
+            <Drawer.Screen name="index" options={{ title: 'Fibenchi' }} />
+          </Drawer>
+          <PortalHost />
+        </ConfigProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
