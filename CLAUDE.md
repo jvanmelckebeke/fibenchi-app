@@ -1,7 +1,7 @@
 # Fibenchi App — CLAUDE.md
 
-Mobile companion for **Fibenchi** (self-hosted stock/ETF watchlist at
-`fibenchi.wstation.lan`). Glanceable market data on the phone — price, sparkline,
+Mobile companion for **Fibenchi** (a self-hosted stock/ETF watchlist running on
+your own network). Glanceable market data on the phone — price, sparkline,
 RSI/MACD, movement, current-day trajectory. Not a full charting tool; that stays
 on the laptop in Fibenchi proper.
 
