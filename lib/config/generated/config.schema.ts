@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 export const companionConfigSchema = z
   .object({
-    version: z.literal(1).describe('Contract version the app gates on').default(1),
+    version: z
+      .literal(1)
+      .describe(
+        "Contract version the app gates on (always sent; required so the app's gate can't be bypassed by an absent field)"
+      ),
     generatedAt: z
       .string()
       .datetime({ offset: true })
