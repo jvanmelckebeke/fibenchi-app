@@ -1,4 +1,4 @@
-import { useNavigation } from 'expo-router';
+import { Redirect, useNavigation } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 
@@ -9,7 +9,7 @@ import { usePolledQuotes } from '@/stores/quotes';
 
 export default function Overview() {
   const navigation = useNavigation();
-  const { config, loading, error, activeGroup, reload } = useConfig();
+  const { config, status, error, activeGroup, sync, needsOnboarding } = useConfig();
 
   const group = useMemo(
     () => config?.groups?.find((candidate) => candidate.name === activeGroup) ?? null,
@@ -24,21 +24,21 @@ export default function Overview() {
     navigation.setOptions({ title: activeGroup ?? 'Fibenchi' });
   }, [navigation, activeGroup]);
 
-  if (loading && !config) {
-    return (
-      <Centered>
-        <Text className="text-muted-foreground">Loading…</Text>
-      </Centered>
-    );
-  }
+  if (needsOnboarding) return <Redirect href="/onboard" />;
 
-  if (error && !config) {
+  if (!config) {
     return (
       <Centered>
-        <Text className="text-center text-loss">{error}</Text>
-        <Text className="mt-2 text-center text-xs text-muted-foreground">
-          Is the Fibenchi endpoint reachable from this device?
-        </Text>
+        {error ? (
+          <>
+            <Text className="text-center text-loss">{error}</Text>
+            <Text className="mt-2 text-center text-xs text-muted-foreground">
+              Is the Fibenchi endpoint reachable from this device?
+            </Text>
+          </>
+        ) : (
+          <Text className="text-muted-foreground">Loading…</Text>
+        )}
       </Centered>
     );
   }
@@ -49,7 +49,7 @@ export default function Overview() {
       keyExtractor={(symbol) => symbol}
       renderItem={({ item }) => <TickerCard symbol={item} name={tickers[item]?.name ?? item} />}
       contentContainerStyle={{ paddingVertical: 8 }}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} />}
+      refreshControl={<RefreshControl refreshing={status === 'syncing'} onRefresh={sync} />}
       ListEmptyComponent={
         <Centered>
           <Text className="text-muted-foreground">No symbols in this group.</Text>

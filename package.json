@@ -14,7 +14,7 @@
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
-    "@react-navigation/drawer": "^7.10.3",
+    "@react-navigation/drawer": "^7.9.4",
     "@react-navigation/native": "^7.0.0",
     "@rn-primitives/portal": "~1.4.0",
     "@rn-primitives/slot": "^1.4.0",
@@ -36,6 +36,7 @@
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
     "react-native-gesture-handler": "~2.30.0",
+    "react-native-mmkv": "^4.3.1",
     "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -51,7 +52,7 @@
     "@babel/core": "^7.26.0",
     "@types/react": "~19.2.10",
     "eslint": "^9.39.4",
-    "eslint-config-expo": "^56.0.4",
+    "eslint-config-expo": "~55.0.1",
     "eslint-config-prettier": "^10.1.8",
     "json-schema-to-zod": "^2.8.1",
     "prettier": "^3.8.3",
