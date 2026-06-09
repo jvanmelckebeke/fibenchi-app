@@ -1,4 +1,3 @@
-import { useColorScheme } from 'nativewind';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -8,7 +7,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { THEME } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // Flash envelope: snap up, linger at peak, then a slow fade so the tint reads as
 // a deliberate pulse rather than a blink (~1.3s total).
@@ -33,8 +32,7 @@ interface FlashOnChangeProps {
  * untouched. No flash on first paint (only on a change from a known prior value).
  */
 export function FlashOnChange({ value, children, style, radius = 6 }: FlashOnChangeProps) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'dark'];
+  const theme = useTheme();
   const previous = useRef<number | null>(null);
   const opacity = useSharedValue(0);
   const rising = useSharedValue(1);
