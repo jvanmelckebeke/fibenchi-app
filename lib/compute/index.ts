@@ -5,5 +5,6 @@ export {
   buildIndicatorSnapshot,
   computeIndicators,
   getMaxWarmup,
+  macdSeries,
 } from './indicators';
-export type { IndicatorSnapshot, ComputedIndicators } from './indicators';
+export type { IndicatorSnapshot, ComputedIndicators, MacdPoint } from './indicators';
