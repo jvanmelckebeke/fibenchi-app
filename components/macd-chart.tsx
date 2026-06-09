@@ -10,11 +10,11 @@ import { skiaColor, THEME } from '@/lib/theme';
 interface MacdChartProps {
   /** Converged MACD rows (see `macdSeries`); needs ≥ 2 to draw. */
   data: MacdPoint[];
-  /** Optional tag shown at the start of the legend row (e.g. the symbol). */
+  /** Optional tag shown above the readout (e.g. the symbol). */
   label?: string;
 }
 
-/** Compact tick formatting — MACD magnitude scales with price, so adapt precision. */
+/** Compact value formatting — MACD magnitude scales with price, so adapt precision. */
 function fmt(value: number): string {
   const abs = Math.abs(value);
   const decimals = abs >= 10 ? 1 : 2;
@@ -22,19 +22,20 @@ function fmt(value: number): string {
 }
 
 /**
- * Minimal 1-month MACD panel revealed behind a swiped ticker card: a legend
- * (so the three series are distinguishable), a left y-axis with actual MACD
- * values, then the chart — a bicolour histogram (green above zero / red below)
- * under the MACD and signal lines. Histogram is two `Bar` series (positive-only
- * / negative-only, zero-height off-sign bars) since victory's `Bar` anchors at
- * `yScale(0)`. Y-domain is symmetric about 0, so the axis reads ±bound / 0 and
- * the zero baseline sits mid-panel.
+ * Minimal 1-month MACD panel revealed behind a swiped ticker card. A left
+ * readout column names each series by colour and gives its latest value (blue
+ * MACD, orange signal, green/red histogram) — that doubles as the legend and
+ * keeps the chart itself narrow rather than full-bleed. The chart is a bicolour
+ * histogram (green above zero / red below) under the MACD and signal lines;
+ * histogram is two `Bar` series (positive-only / negative-only, zero-height
+ * off-sign bars) since victory's `Bar` anchors at `yScale(0)`. Y-domain is
+ * symmetric about 0 so the zero baseline sits mid-panel.
  */
 export function MacdChart({ data, label }: MacdChartProps) {
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'dark'];
 
-  const { rows, bound } = useMemo(() => {
+  const { rows, bound, latest } = useMemo(() => {
     const mapped = data.map((point, i) => ({
       i,
       macd: point.macd,
@@ -46,61 +47,60 @@ export function MacdChart({ data, label }: MacdChartProps) {
       (max, p) => Math.max(max, Math.abs(p.macd), Math.abs(p.signal), Math.abs(p.hist)),
       0
     );
-    return { rows: mapped, bound: maxAbs || 1 };
+    return { rows: mapped, bound: maxAbs || 1, latest: data[data.length - 1] ?? null };
   }, [data]);
 
-  if (rows.length < 2) return <View style={{ flex: 1 }} />;
+  if (rows.length < 2 || !latest) return <View style={{ flex: 1 }} />;
+
+  const histColor = latest.hist >= 0 ? theme.gain : theme.loss;
 
   return (
-    <View style={{ flex: 1 }}>
-      <Legend label={label} theme={theme} />
-      <View className="flex-1 flex-row">
-        {/* Actual y-axis values, aligned to the symmetric ±bound / 0 domain. */}
-        <View className="w-9 items-end justify-between py-px pr-1">
-          <Text className="text-[9px] text-muted-foreground">{fmt(bound)}</Text>
-          <Text className="text-[9px] text-muted-foreground">0</Text>
-          <Text className="text-[9px] text-muted-foreground">{fmt(-bound)}</Text>
-        </View>
-        <View className="flex-1">
-          <CartesianChart
-            data={rows}
-            xKey="i"
-            yKeys={['histUp', 'histDown', 'macd', 'signal']}
-            domain={{ y: [-bound, bound] }}
-            domainPadding={{ top: 4, bottom: 4 }}>
-            {({ points, chartBounds }) => (
-              <>
-                <Bar points={points.histUp} chartBounds={chartBounds} color={skiaColor(theme.gain)} innerPadding={0.3} />
-                <Bar points={points.histDown} chartBounds={chartBounds} color={skiaColor(theme.loss)} innerPadding={0.3} />
-                <Line points={points.macd} color={skiaColor(theme.chart1)} strokeWidth={1.5} />
-                <Line points={points.signal} color={skiaColor(theme.chart3)} strokeWidth={1.5} />
-              </>
-            )}
-          </CartesianChart>
-        </View>
+    <View className="flex-1 flex-row items-stretch">
+      <View className="w-24 justify-center gap-0.5 pl-1">
+        {label && <Text className="text-xs font-semibold text-foreground">{label}</Text>}
+        <Readout color={theme.chart1} name="MACD" value={fmt(latest.macd)} />
+        <Readout color={theme.chart3} name="Signal" value={fmt(latest.signal)} />
+        <Readout color={histColor} name="Hist" value={fmt(latest.hist)} square />
+      </View>
+      <View className="flex-1">
+        <CartesianChart
+          data={rows}
+          xKey="i"
+          yKeys={['histUp', 'histDown', 'macd', 'signal']}
+          domain={{ y: [-bound, bound] }}
+          domainPadding={{ top: 4, bottom: 4 }}>
+          {({ points, chartBounds }) => (
+            <>
+              <Bar points={points.histUp} chartBounds={chartBounds} color={skiaColor(theme.gain)} innerPadding={0.3} />
+              <Bar points={points.histDown} chartBounds={chartBounds} color={skiaColor(theme.loss)} innerPadding={0.3} />
+              <Line points={points.macd} color={skiaColor(theme.chart1)} strokeWidth={1.5} />
+              <Line points={points.signal} color={skiaColor(theme.chart3)} strokeWidth={1.5} />
+            </>
+          )}
+        </CartesianChart>
       </View>
     </View>
   );
 }
 
-function Legend({ label, theme }: { label?: string; theme: (typeof THEME)['dark'] }) {
+function Readout({
+  color,
+  name,
+  value,
+  square,
+}: {
+  color: string;
+  name: string;
+  value: string;
+  square?: boolean;
+}) {
   return (
-    <View className="flex-row items-center gap-3 px-1">
-      {label && <Text className="text-[10px] font-semibold text-muted-foreground">{label}</Text>}
-      <Key color={theme.chart1} text="MACD" />
-      <Key color={theme.chart3} text="Signal" />
-      <Key color={theme.gain} text="Hist" square />
-    </View>
-  );
-}
-
-function Key({ color, text, square }: { color: string; text: string; square?: boolean }) {
-  return (
-    <View className="flex-row items-center gap-1">
-      <View
-        style={{ width: 8, height: square ? 8 : 2, borderRadius: square ? 1 : 1, backgroundColor: color }}
-      />
-      <Text className="text-[10px] text-muted-foreground">{text}</Text>
+    <View className="flex-row items-center gap-1.5">
+      <View style={{ width: 9, height: square ? 9 : 2, borderRadius: 1, backgroundColor: color }} />
+      <Text className="text-[10px] text-muted-foreground">{name}</Text>
+      <Text className="text-[10px] font-semibold" style={{ color }}>
+        {value}
+      </Text>
     </View>
   );
 }
