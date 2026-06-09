@@ -4,8 +4,10 @@ import { fetchYahooJson } from './yahoo/client';
 import { chartPath, dailyRange } from './yahoo/endpoints';
 import { parseBars, parseIntraday, parseQuote } from './yahoo/parse';
 
-const QUOTE_TTL_MS = 15_000;
-const INTRADAY_TTL_MS = 60_000;
+// The live quote and today's intraday are parsed from the *same* 1m/1d chart
+// response, so they share one cached fetch per symbol rather than hitting Yahoo
+// twice (a 15-ticker group would otherwise fire ~2x the requests on open).
+const CHART_1D_TTL_MS = 15_000;
 const DAILY_TTL_MS = 60 * 60_000; // 1 hour — daily bars only change once per session
 
 /**
@@ -30,27 +32,22 @@ export abstract class PriceProvider {
 export class YahooProvider extends PriceProvider {
   private cache = new TtlCache();
 
+  /** Cached raw 1m/1d chart JSON — shared by getQuote + getIntraday. */
+  private chart1d(symbol: string): Promise<unknown> {
+    return this.cache.remember(`chart1d:${symbol}`, CHART_1D_TTL_MS, () =>
+      fetchYahooJson(chartPath(symbol, { interval: '1m', range: '1d', includePrePost: true }))
+    );
+  }
+
   async getQuote(symbols: string[]): Promise<Quote[]> {
-    const quotes = await Promise.all(symbols.map((symbol) => this.quoteOne(symbol).catch(() => null)));
+    const quotes = await Promise.all(
+      symbols.map((symbol) => this.chart1d(symbol).then(parseQuote).catch(() => null))
+    );
     return quotes.filter((quote): quote is Quote => quote !== null);
   }
 
-  private quoteOne(symbol: string): Promise<Quote> {
-    return this.cache.remember(`quote:${symbol}`, QUOTE_TTL_MS, async () => {
-      const json = await fetchYahooJson(
-        chartPath(symbol, { interval: '1m', range: '1d', includePrePost: true })
-      );
-      return parseQuote(json);
-    });
-  }
-
   getIntraday(symbol: string): Promise<IntradayResult> {
-    return this.cache.remember(`intraday:${symbol}`, INTRADAY_TTL_MS, async () => {
-      const json = await fetchYahooJson(
-        chartPath(symbol, { interval: '1m', range: '1d', includePrePost: true })
-      );
-      return parseIntraday(json);
-    });
+    return this.chart1d(symbol).then(parseIntraday);
   }
 
   getDaily(symbol: string, period: Period): Promise<OhlcBar[]> {
