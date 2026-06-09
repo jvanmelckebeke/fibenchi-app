@@ -14,6 +14,7 @@
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
     "@react-navigation/drawer": "^7.9.4",
     "@react-navigation/native": "^7.0.0",
     "@rn-primitives/portal": "~1.4.0",

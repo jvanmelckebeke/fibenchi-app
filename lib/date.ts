@@ -20,6 +20,14 @@ export function sessionLabel(epochSeconds: number, now: Date = new Date()): stri
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+/** Local clock time "HH:MM" from epoch *seconds* (no Intl) — for the intraday crosshair. */
+export function sessionTime(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 /** Compact local date-time, e.g. "Jun 7, 14:30" (no Intl). */
 export function formatTimestamp(ms: number): string {
   const d = new Date(ms);
