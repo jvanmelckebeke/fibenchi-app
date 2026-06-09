@@ -52,8 +52,8 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
         const rsiValue = snapshot?.values.rsi;
         setRsi(typeof rsiValue === 'number' ? rsiValue : null);
         // MACD computed over all bars (correct EMA convergence); show only the
-        // last 5 days so they don't crowd the narrow reveal chart.
-        setMacd(macdSeries(bars, 5));
+        // last 8 days so they don't crowd the narrow reveal chart.
+        setMacd(macdSeries(bars, 8));
       })
       .catch(() => {});
     return () => {
