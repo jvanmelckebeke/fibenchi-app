@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { Canvas, LinearGradient, Path, Skia, vec } from '@shopify/react-native-skia';
 
+import { skiaColor } from '@/lib/theme';
+
 interface SparklineProps {
   data: number[];
   width?: number;
@@ -42,10 +44,13 @@ export function Sparkline({ data, width = 92, height = 32, color }: SparklinePro
 
   if (!paths) return <View style={{ width, height }} />;
 
+  // Skia's CSS parser needs comma-separated hsl(); our theme uses spaces.
+  const stroke = skiaColor(color);
+
   return (
     <Canvas style={{ width, height }}>
       <Path path={paths.area} opacity={0.18}>
-        <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={[color, 'transparent']} />
+        <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={[stroke, 'transparent']} />
       </Path>
       <Path
         path={paths.line}
@@ -53,7 +58,7 @@ export function Sparkline({ data, width = 92, height = 32, color }: SparklinePro
         strokeWidth={1.5}
         strokeJoin="round"
         strokeCap="round"
-        color={color}
+        color={stroke}
       />
     </Canvas>
   );
