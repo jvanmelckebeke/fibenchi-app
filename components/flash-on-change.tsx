@@ -10,6 +10,13 @@ import Animated, {
 
 import { THEME } from '@/lib/theme';
 
+// Flash envelope: snap up, linger at peak, then a slow fade so the tint reads as
+// a deliberate pulse rather than a blink (~1.3s total).
+const FLASH_PEAK = 0.45;
+const RISE_MS = 120;
+const HOLD_MS = 450;
+const FADE_MS = 750;
+
 interface FlashOnChangeProps {
   /** Flash fires whenever this changes: green when it rises, red when it falls. */
   value: number | null | undefined;
@@ -38,8 +45,9 @@ export function FlashOnChange({ value, children, style, radius = 6 }: FlashOnCha
     if (prev != null && value !== prev) {
       rising.value = value > prev ? 1 : 0;
       opacity.value = withSequence(
-        withTiming(0.4, { duration: 90 }),
-        withTiming(0, { duration: 480 })
+        withTiming(FLASH_PEAK, { duration: RISE_MS }),
+        withTiming(FLASH_PEAK, { duration: HOLD_MS }),
+        withTiming(0, { duration: FADE_MS })
       );
     }
     previous.current = value;
