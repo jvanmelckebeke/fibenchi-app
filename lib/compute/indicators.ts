@@ -128,6 +128,37 @@ export function buildIndicatorSnapshot(bars: OhlcBar[]): IndicatorSnapshot | nul
   };
 }
 
+/** One bar of the MACD sub-series — line, signal, histogram — for the MACD chart. */
+export interface MacdPoint {
+  time: number;
+  macd: number;
+  signal: number;
+  hist: number;
+}
+
+/**
+ * The last `count` *converged* bars of MACD line / signal / histogram, for the
+ * swipe-to-reveal MACD chart. `computeIndicators` already produces the full
+ * per-bar series, so this just drops warmup rows (where macd/signal are still
+ * null) and trims to the requested window (~21 ≈ one trading month).
+ */
+export function macdSeries(bars: OhlcBar[], count = 21): MacdPoint[] {
+  const { time, fields } = computeIndicators(bars);
+  const macdLine = fields.macd ?? [];
+  const signalLine = fields.macd_signal ?? [];
+  const histLine = fields.macd_hist ?? [];
+
+  const rows: MacdPoint[] = [];
+  for (let i = 0; i < time.length; i++) {
+    const macd = macdLine[i];
+    const signal = signalLine[i];
+    const hist = histLine[i];
+    if (macd == null || signal == null || hist == null) continue;
+    rows.push({ time: time[i], macd, signal, hist });
+  }
+  return rows.slice(-count);
+}
+
 function safeRound(value: number | null, decimals: number): number | null {
   return value !== null && Number.isFinite(value) ? round(value, decimals) : null;
 }
