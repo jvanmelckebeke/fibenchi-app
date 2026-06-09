@@ -1,16 +1,13 @@
 import { Stack, useRouter } from 'expo-router';
 import { Search as SearchIcon, X } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useConfig } from '@/lib/config/provider';
 import { type SymbolSearchResult } from '@/lib/market';
 import { useSymbolSearch } from '@/lib/search';
-import { THEME } from '@/lib/theme';
 
 type Row =
   | { key: string; kind: 'header'; title: string; trailing?: boolean }
@@ -24,8 +21,6 @@ type Row =
  */
 export default function SearchScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'dark'];
   const { config } = useConfig();
 
   const [query, setQuery] = useState('');
@@ -52,12 +47,10 @@ export default function SearchScreen() {
     <>
       <Stack.Screen options={{ title: 'Search' }} />
       <View className="flex-1 bg-background">
-        <View className="flex-row items-center gap-2 px-4 pb-2 pt-3">
-          <View className="flex-1 flex-row items-center">
-            <View className="absolute left-3 z-10">
-              <Icon as={SearchIcon} size={16} className="text-muted-foreground" />
-            </View>
-            <Input
+        <View className="px-4 pb-2 pt-3">
+          <View className="h-11 flex-row items-center gap-2 rounded-lg border border-input bg-background px-3">
+            <Icon as={SearchIcon} size={18} className="text-muted-foreground" />
+            <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search symbol or name (e.g. RR.L)"
@@ -65,11 +58,11 @@ export default function SearchScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
-              className="flex-1 pl-9 pr-9"
+              className="h-full flex-1 p-0 text-base leading-5 text-foreground placeholder:text-muted-foreground/60"
             />
             {query.length > 0 && (
-              <Pressable onPress={() => setQuery('')} hitSlop={8} className="absolute right-3 z-10">
-                <Icon as={X} size={16} className="text-muted-foreground" />
+              <Pressable onPress={() => setQuery('')} hitSlop={8}>
+                <Icon as={X} size={18} className="text-muted-foreground" />
               </Pressable>
             )}
           </View>
@@ -86,7 +79,7 @@ export default function SearchScreen() {
               return (
                 <View className="flex-row items-center gap-2 px-4 pb-1 pt-4">
                   <Text className="text-xs uppercase text-muted-foreground">{item.title}</Text>
-                  {item.trailing && <ActivityIndicator size="small" color={theme.mutedForeground} />}
+                  {item.trailing && <ActivityIndicator size="small" />}
                 </View>
               );
             }
