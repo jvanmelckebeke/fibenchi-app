@@ -1,4 +1,5 @@
-import { Circle, DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { Inter_400Regular } from '@expo-google-fonts/inter';
+import { Circle, DashPathEffect, Line as SkiaLine, useFont, vec } from '@shopify/react-native-skia';
 import { useColorScheme } from 'nativewind';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -37,6 +38,9 @@ export function IntradayChart({
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'dark'];
   const { state, isActive } = useChartPressState({ x: 0, y: { price: 0 } });
+  // Bundled Skia font for the x-axis tick labels (null until loaded — victory
+  // just omits labels until then).
+  const font = useFont(Inter_400Regular, 10);
 
   const { data, domain } = useMemo(() => {
     const rows = points.map((point) => ({ t: point.time, price: point.price }));
@@ -45,17 +49,6 @@ export function IntradayChart({
     const hi = Math.max(previousClose, ...prices);
     return { data: rows, domain: [lo, hi] as [number, number] };
   }, [points, previousClose]);
-
-  // x-axis time labels. victory's own axis needs a bundled Skia font; intraday
-  // bars are ~evenly spaced in time over the full-width plot, so evenly-spaced
-  // labels line up well without one.
-  const ticks = useMemo(() => {
-    const n = points.length;
-    if (n < 2) return [];
-    const count = Math.min(4, n);
-    const indices = [...new Set(Array.from({ length: count }, (_, k) => Math.round((k / (count - 1)) * (n - 1))))];
-    return indices.map((i) => sessionTime(points[i].time));
-  }, [points]);
 
   if (data.length < 2) return <View style={{ height }} />;
 
@@ -80,6 +73,13 @@ export function IntradayChart({
           yKeys={['price']}
           domain={{ y: domain }}
           domainPadding={{ top: 8, bottom: 8 }}
+          xAxis={{
+            font,
+            tickCount: 4,
+            lineWidth: 0,
+            labelColor: skiaColor(theme.mutedForeground),
+            formatXLabel: (t) => (t ? sessionTime(t) : ''),
+          }}
           chartPressState={state}
           // Activate the crosshair on a horizontal drag; let vertical drags fall
           // through to the detail ScrollView.
@@ -106,13 +106,6 @@ export function IntradayChart({
             </>
           )}
         </CartesianChart>
-      </View>
-      <View className="mt-1 flex-row justify-between">
-        {ticks.map((tick, i) => (
-          <Text key={i} className="text-[9px] text-muted-foreground">
-            {tick}
-          </Text>
-        ))}
       </View>
     </View>
   );
