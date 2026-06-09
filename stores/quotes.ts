@@ -31,36 +31,40 @@ export function useQuote(symbol: string): Quote | undefined {
   );
 }
 
-// Adaptive cadence: fast while a tracked symbol's session is live (pre/regular/
-// post), slow when everything is closed. Off-hours prices barely move, so there's
-// no point hammering Yahoo or spinning the radio every 5s overnight.
+// Per-symbol adaptive cadence: a symbol polls fast while *its own* market is open
+// (so a mixed EU/US group keeps the EU names live at ~5s while the closed US ones
+// idle at ~60s), and backs off once closed. There's no batch quote endpoint —
+// getQuote([s]) is one fetch per symbol either way — so independent loops cost no
+// extra requests; they just let each symbol keep its own clock.
 const LIVE_INTERVAL_MS = 5_000;
 const IDLE_INTERVAL_MS = 60_000;
 
 /**
  * Poll quotes for a set of symbols while mounted, pushing each into the store.
- * Runs immediately, then re-schedules off the latest market state — ~5s during
- * an open session, ~60s once all tracked symbols are closed. Stops on unmount,
- * which is what makes polling track "while this screen is active".
+ * Each symbol runs its own loop, re-scheduling off its latest `isOpen` — ~5s
+ * while open (regular session, or always for crypto), ~60s otherwise. Stops on
+ * unmount, which is what makes polling track "while this screen is active".
  */
 export function usePolledQuotes(symbols: string[]): void {
   const key = symbols.join(',');
   useEffect(() => {
     if (symbols.length === 0) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-    const tick = async () => {
-      const fetched = await market.getQuote(symbols).catch(() => [] as Quote[]);
+    const tick = async (symbol: string) => {
+      const [quote] = await market.getQuote([symbol]).catch(() => [] as Quote[]);
       if (cancelled) return;
-      fetched.forEach(setQuote);
-      const live = fetched.some((quote) => quote.marketState !== 'closed');
-      timer = setTimeout(() => void tick(), live ? LIVE_INTERVAL_MS : IDLE_INTERVAL_MS);
+      if (quote) setQuote(quote);
+      // No quote (fetch failed / dropped) → back off like a closed market.
+      const delay = quote?.isOpen ? LIVE_INTERVAL_MS : IDLE_INTERVAL_MS;
+      timers.set(symbol, setTimeout(() => void tick(symbol), delay));
     };
-    void tick();
+
+    symbols.forEach((symbol) => void tick(symbol));
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      timers.forEach((timer) => clearTimeout(timer));
     };
     // `key` captures the symbol set by value; `symbols` identity may vary per render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

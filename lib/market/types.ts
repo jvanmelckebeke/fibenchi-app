@@ -18,6 +18,14 @@ export interface Quote {
   currency: string | null;
   shortName: string | null;
   marketState: MarketState;
+  /**
+   * Whether this symbol is tradeable *right now*, on its own exchange's clock —
+   * the per-symbol signal that drives live polling. True during the regular
+   * session (Yahoo's `currentTradingPeriod` already localises this per exchange,
+   * so `.MI`/`.L` follow EU hours), and always true for crypto (24/7). Pre/post
+   * count as closed for cadence purposes.
+   */
+  isOpen: boolean;
   /** Epoch seconds of the last regular-market print. */
   marketTime: number;
 }
