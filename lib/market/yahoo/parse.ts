@@ -1,4 +1,4 @@
-import type { IntradayResult, MarketState, OhlcBar, Quote } from '../types';
+import type { IntradayResult, MarketState, OhlcBar, Quote, SymbolSearchResult } from '../types';
 
 // Boundary validation, hand-rolled (no Zod). Yahoo's unofficial JSON is messy —
 // null rows, missing fields, occasional shape changes — so parse defensively
@@ -138,4 +138,43 @@ export function parseIntraday(json: unknown): IntradayResult {
   const symbol = str(meta.symbol) ?? '';
   const points = parseBars(json).map((bar) => ({ time: bar.time, price: bar.close }));
   return { symbol, previousClose, points };
+}
+
+/** Map Yahoo `quoteType` to our coarse asset type. */
+function searchType(quoteType: string | null): SymbolSearchResult['type'] {
+  switch (quoteType) {
+    case 'EQUITY':
+      return 'stock';
+    case 'ETF':
+      return 'etf';
+    case 'INDEX':
+      return 'index';
+    default:
+      return 'other';
+  }
+}
+
+/**
+ * Parse the v1 search payload into symbol hits. Keeps only tradeable instruments
+ * (equity/ETF/index — drops currencies, futures, news); names fall back through
+ * shortname → longname → symbol. `tracked` is decided by the caller.
+ */
+export function parseSearchResults(json: unknown): SymbolSearchResult[] {
+  const quotes = arr(asRecord(json).quotes);
+  const results: SymbolSearchResult[] = [];
+  for (const raw of quotes) {
+    const item = raw as Record<string, unknown>;
+    const symbol = str(item.symbol);
+    if (!symbol) continue;
+    const quoteType = str(item.quoteType);
+    if (quoteType !== 'EQUITY' && quoteType !== 'ETF' && quoteType !== 'INDEX') continue;
+    results.push({
+      symbol,
+      name: str(item.shortname) ?? str(item.longname) ?? symbol,
+      exchange: str(item.exchDisp) ?? str(item.exchange),
+      type: searchType(quoteType),
+      tracked: false,
+    });
+  }
+  return results;
 }

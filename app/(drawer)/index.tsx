@@ -1,7 +1,9 @@
-import { Redirect, useNavigation } from 'expo-router';
-import { useEffect, useMemo } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
+import { Redirect, useNavigation, useRouter } from 'expo-router';
+import { Search as SearchIcon } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo } from 'react';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { TickerCard } from '@/components/ticker-card';
 import { useConfig } from '@/lib/config/provider';
@@ -9,7 +11,17 @@ import { usePolledQuotes } from '@/stores/quotes';
 
 export default function Overview() {
   const navigation = useNavigation();
+  const router = useRouter();
   const { config, status, error, activeGroup, sync, needsOnboarding } = useConfig();
+
+  const HeaderSearch = useCallback(
+    () => (
+      <Pressable onPress={() => router.push('/search')} hitSlop={12} className="px-4">
+        <Icon as={SearchIcon} size={20} className="text-foreground" />
+      </Pressable>
+    ),
+    [router]
+  );
 
   const group = useMemo(
     () => config?.groups?.find((candidate) => candidate.name === activeGroup) ?? null,
@@ -21,8 +33,8 @@ export default function Overview() {
   usePolledQuotes(symbols);
 
   useEffect(() => {
-    navigation.setOptions({ title: activeGroup ?? 'Fibenchi' });
-  }, [navigation, activeGroup]);
+    navigation.setOptions({ title: activeGroup ?? 'Fibenchi', headerRight: HeaderSearch });
+  }, [navigation, activeGroup, HeaderSearch]);
 
   if (needsOnboarding) return <Redirect href="/onboard" />;
 

@@ -54,3 +54,15 @@ export interface IntradayResult {
   previousClose: number;
   points: IntradayPoint[];
 }
+
+/** A symbol-search hit (from the local watchlist or Yahoo's search endpoint). */
+export interface SymbolSearchResult {
+  symbol: string;
+  /** Company / fund name, or the symbol itself when no name is known. */
+  name: string;
+  /** Short exchange label (e.g. "LSE", "NMS"), or null when unknown. */
+  exchange: string | null;
+  type: 'stock' | 'etf' | 'index' | 'other';
+  /** True when the symbol is already in the synced Fibenchi watchlist. */
+  tracked: boolean;
+}

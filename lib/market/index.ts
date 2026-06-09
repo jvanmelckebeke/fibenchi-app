@@ -2,7 +2,15 @@
 // what's exposed is curated.
 import { PriceProvider, YahooProvider } from './provider';
 
-export type { Period, MarketState, Quote, OhlcBar, IntradayPoint, IntradayResult } from './types';
+export type {
+  Period,
+  MarketState,
+  Quote,
+  OhlcBar,
+  IntradayPoint,
+  IntradayResult,
+  SymbolSearchResult,
+} from './types';
 export { PriceProvider, YahooProvider };
 
 /** Default app-wide market-data provider. */
