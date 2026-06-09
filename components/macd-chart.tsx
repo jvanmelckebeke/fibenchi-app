@@ -66,7 +66,9 @@ export function MacdChart({ data }: MacdChartProps) {
           xKey="i"
           yKeys={['histUp', 'histDown', 'macd', 'signal']}
           domain={{ y: [-bound, bound] }}
-          domainPadding={{ top: 4, bottom: 4 }}>
+          // left/right keep the first & last bars fully inside the plot (else
+          // they're centred on the edge and clipped to half-bars).
+          domainPadding={{ left: 16, right: 16, top: 4, bottom: 4 }}>
           {({ points, chartBounds }) => (
             <>
               <Bar points={points.histUp} chartBounds={chartBounds} color={skiaColor(theme.gain)} innerPadding={0.3} />
