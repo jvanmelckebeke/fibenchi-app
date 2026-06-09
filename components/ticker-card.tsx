@@ -68,12 +68,14 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
   return (
     <SwipeReveal
       reveal={
-        <Card className="my-1 mr-3 flex-1 overflow-hidden">
+        // Plain card-styled View, not <Card> — the Card primitive's py-6/gap-6
+        // crams the chart into a card-row's height. Padding is ours to control.
+        <View className="my-1 mr-3 flex-1 overflow-hidden rounded-xl border border-border bg-card">
           {/* Glance-only: let taps/swipes fall through to close/pan, not the chart's own gestures. */}
-          <View pointerEvents="none" className="flex-1 py-1.5 pl-2 pr-3">
+          <View pointerEvents="none" className="flex-1 py-2 pl-3 pr-3">
             <MacdChart data={macd} />
           </View>
-        </Card>
+        </View>
       }>
       <Pressable onPress={() => router.push({ pathname: '/asset/[symbol]', params: { symbol } })}>
         <Card className="mx-3 my-1">
