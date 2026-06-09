@@ -7,7 +7,13 @@ import { parseBars, parseIntraday, parseQuote } from './yahoo/parse';
 // The live quote and today's intraday are parsed from the *same* 1m/1d chart
 // response, so they share one cached fetch per symbol rather than hitting Yahoo
 // twice (a 15-ticker group would otherwise fire ~2x the requests on open).
-const CHART_1D_TTL_MS = 15_000;
+//
+// The TTL must stay *below* the live poll cadence (see LIVE_INTERVAL_MS in
+// stores/quotes.ts, ~5s) — otherwise a live poll would be served a stale cached
+// quote and the price would stop ticking. It only needs to be long enough to
+// absorb the mount-time burst (a card's getIntraday + the first getQuote firing
+// near-simultaneously), which the in-flight de-dup already mostly covers.
+const CHART_1D_TTL_MS = 4_000;
 const DAILY_TTL_MS = 60 * 60_000; // 1 hour — daily bars only change once per session
 
 /**

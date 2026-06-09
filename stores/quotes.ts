@@ -31,26 +31,38 @@ export function useQuote(symbol: string): Quote | undefined {
   );
 }
 
+// Adaptive cadence: fast while a tracked symbol's session is live (pre/regular/
+// post), slow when everything is closed. Off-hours prices barely move, so there's
+// no point hammering Yahoo or spinning the radio every 5s overnight.
+const LIVE_INTERVAL_MS = 5_000;
+const IDLE_INTERVAL_MS = 60_000;
+
 /**
- * Poll quotes for a set of symbols on an interval while mounted, pushing each
- * into the store. Runs immediately, then every `intervalMs`.
+ * Poll quotes for a set of symbols while mounted, pushing each into the store.
+ * Runs immediately, then re-schedules off the latest market state — ~5s during
+ * an open session, ~60s once all tracked symbols are closed. Stops on unmount,
+ * which is what makes polling track "while this screen is active".
  */
-export function usePolledQuotes(symbols: string[], intervalMs = 30_000): void {
+export function usePolledQuotes(symbols: string[]): void {
   const key = symbols.join(',');
   useEffect(() => {
     if (symbols.length === 0) return;
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     const tick = async () => {
       const fetched = await market.getQuote(symbols).catch(() => [] as Quote[]);
-      if (!cancelled) fetched.forEach(setQuote);
+      if (cancelled) return;
+      fetched.forEach(setQuote);
+      const live = fetched.some((quote) => quote.marketState !== 'closed');
+      timer = setTimeout(() => void tick(), live ? LIVE_INTERVAL_MS : IDLE_INTERVAL_MS);
     };
     void tick();
-    const id = setInterval(() => void tick(), intervalMs);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
     };
     // `key` captures the symbol set by value; `symbols` identity may vary per render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, intervalMs]);
+  }, [key]);
 }
