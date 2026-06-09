@@ -66,7 +66,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
   return (
     <SwipeReveal
       reveal={
-        <Card className="mx-3 my-1 flex-1">
+        <Card className="my-1 mr-3 flex-1">
           {/* Glance-only: let taps/swipes fall through to close/pan, not the chart's own gestures. */}
           <View pointerEvents="none" className="flex-1 px-2 py-1.5">
             <MacdChart data={macd} label={symbol} />

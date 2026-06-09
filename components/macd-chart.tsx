@@ -56,8 +56,8 @@ export function MacdChart({ data, label }: MacdChartProps) {
 
   return (
     <View className="flex-1 flex-row items-stretch">
-      <View className="w-24 justify-center gap-0.5 pl-1">
-        {label && <Text className="text-xs font-semibold text-foreground">{label}</Text>}
+      <View className="w-[58px] justify-center gap-px">
+        {label && <Text className="text-[10px] font-semibold text-foreground">{label}</Text>}
         <Readout color={theme.chart1} name="MACD" value={fmt(latest.macd)} />
         <Readout color={theme.chart3} name="Signal" value={fmt(latest.signal)} />
         <Readout color={histColor} name="Hist" value={fmt(latest.hist)} square />
@@ -95,10 +95,10 @@ function Readout({
   square?: boolean;
 }) {
   return (
-    <View className="flex-row items-center gap-1.5">
-      <View style={{ width: 9, height: square ? 9 : 2, borderRadius: 1, backgroundColor: color }} />
-      <Text className="text-[10px] text-muted-foreground">{name}</Text>
-      <Text className="text-[10px] font-semibold" style={{ color }}>
+    <View className="flex-row items-center gap-1">
+      <View style={{ width: 7, height: square ? 7 : 2, borderRadius: 1, backgroundColor: color }} />
+      <Text className="text-[9px] text-muted-foreground">{name}</Text>
+      <Text className="text-[9px] font-semibold" style={{ color }}>
         {value}
       </Text>
     </View>
