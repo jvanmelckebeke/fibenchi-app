@@ -1,45 +1,177 @@
-import { useWindowDimensions, View } from 'react-native';
-import Svg, { Line, Polyline } from 'react-native-svg';
+import { Circle, DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { useColorScheme } from 'nativewind';
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { useAnimatedReaction, useDerivedValue, runOnJS, type SharedValue } from 'react-native-reanimated';
+import { CartesianChart, Line, useChartPressState } from 'victory-native';
+
+import { Text } from '@/components/ui/text';
+import { type IntradayPoint } from '@/lib/market';
+import { skiaColor, THEME } from '@/lib/theme';
+import { sessionTime } from '@/lib/date';
 
 interface IntradayChartProps {
-  /** Close per minute for today. */
-  points: number[];
+  /** Intraday points (time + price) for today. */
+  points: IntradayPoint[];
   /** Prior session close — drawn as a dashed baseline. */
   previousClose: number;
   color: string;
   baselineColor: string;
   height?: number;
-  /** Horizontal padding to subtract from screen width. */
-  horizontalPadding?: number;
 }
 
-/** Today's trajectory: an intraday line with a dashed previous-close baseline. */
+/**
+ * Today's intraday trajectory on victory-native: a price line with a dashed
+ * previous-close baseline, plus a drag-to-read crosshair (`useChartPressState`).
+ * Dragging horizontally shows a vertical guide + marker at the touched point and
+ * reads out price/time above; vertical drags fall through so the page still
+ * scrolls. Crosshair is drawn in-canvas via shared values (no font dependency).
+ */
 export function IntradayChart({
   points,
   previousClose,
   color,
   baselineColor,
   height = 180,
-  horizontalPadding = 32,
 }: IntradayChartProps) {
-  const { width: screenWidth } = useWindowDimensions();
-  const width = screenWidth - horizontalPadding;
-  if (points.length < 2) return <View style={{ width, height }} />;
+  const { colorScheme } = useColorScheme();
+  const theme = THEME[colorScheme ?? 'dark'];
+  const { state, isActive } = useChartPressState({ x: 0, y: { price: 0 } });
 
-  const all = [...points, previousClose];
-  const min = Math.min(...all);
-  const max = Math.max(...all);
-  const range = max - min || 1;
-  const x = (i: number) => (i / (points.length - 1)) * width;
-  const y = (value: number) => height - ((value - min) / range) * height;
+  const { data, domain } = useMemo(() => {
+    const rows = points.map((point) => ({ t: point.time, price: point.price }));
+    const prices = points.map((point) => point.price);
+    const lo = Math.min(previousClose, ...prices);
+    const hi = Math.max(previousClose, ...prices);
+    return { data: rows, domain: [lo, hi] as [number, number] };
+  }, [points, previousClose]);
 
-  const line = points.map((value, i) => `${x(i).toFixed(1)},${y(value).toFixed(1)}`).join(' ');
-  const baseY = y(previousClose).toFixed(1);
+  if (data.length < 2) return <View style={{ height }} />;
+
+  const lineColor = skiaColor(color);
+  const guideColor = skiaColor(theme.mutedForeground);
+  const baseColor = skiaColor(baselineColor);
 
   return (
-    <Svg width={width} height={height}>
-      <Line x1={0} y1={baseY} x2={width} y2={baseY} stroke={baselineColor} strokeWidth={1} strokeDasharray="4 4" />
-      <Polyline points={line} fill="none" stroke={color} strokeWidth={2} />
-    </Svg>
+    <View>
+      <Readout
+        isActive={state.isActive}
+        timeValue={state.x.value}
+        priceValue={state.y.price.value}
+        fallback={points[points.length - 1]}
+        previousClose={previousClose}
+        theme={theme}
+      />
+      <View style={{ height }}>
+        <CartesianChart
+          data={data}
+          xKey="t"
+          yKeys={['price']}
+          domain={{ y: domain }}
+          domainPadding={{ top: 8, bottom: 8 }}
+          chartPressState={state}
+          // Activate the crosshair on a horizontal drag; let vertical drags fall
+          // through to the detail ScrollView.
+          chartPressConfig={{ pan: { activeOffsetX: [-10, 10], failOffsetY: [-12, 12] } }}>
+          {({ points: cp, chartBounds, yScale }) => (
+            <>
+              <Baseline
+                y={yScale(previousClose)}
+                left={chartBounds.left}
+                right={chartBounds.right}
+                color={baseColor}
+              />
+              <Line points={cp.price} color={lineColor} strokeWidth={2} />
+              {isActive && (
+                <Crosshair
+                  x={state.x.position}
+                  y={state.y.price.position}
+                  top={chartBounds.top}
+                  bottom={chartBounds.bottom}
+                  color={guideColor}
+                  dotColor={lineColor}
+                />
+              )}
+            </>
+          )}
+        </CartesianChart>
+      </View>
+    </View>
+  );
+}
+
+function Baseline({ y, left, right, color }: { y: number; left: number; right: number; color: string }) {
+  return (
+    <SkiaLine p1={vec(left, y)} p2={vec(right, y)} color={color} strokeWidth={1}>
+      <DashPathEffect intervals={[4, 4]} />
+    </SkiaLine>
+  );
+}
+
+function Crosshair({
+  x,
+  y,
+  top,
+  bottom,
+  color,
+  dotColor,
+}: {
+  x: SharedValue<number>;
+  y: SharedValue<number>;
+  top: number;
+  bottom: number;
+  color: string;
+  dotColor: string;
+}) {
+  const p1 = useDerivedValue(() => vec(x.value, top));
+  const p2 = useDerivedValue(() => vec(x.value, bottom));
+  return (
+    <>
+      <SkiaLine p1={p1} p2={p2} color={color} strokeWidth={1}>
+        <DashPathEffect intervals={[3, 3]} />
+      </SkiaLine>
+      <Circle cx={x} cy={y} r={4} color={dotColor} />
+    </>
+  );
+}
+
+function Readout({
+  isActive,
+  timeValue,
+  priceValue,
+  fallback,
+  previousClose,
+  theme,
+}: {
+  isActive: SharedValue<boolean>;
+  timeValue: SharedValue<number>;
+  priceValue: SharedValue<number>;
+  fallback: IntradayPoint;
+  previousClose: number;
+  theme: (typeof THEME)['dark'];
+}) {
+  // Re-renders per drag frame, but it's isolated from the chart so the canvas
+  // (which animates off shared values) doesn't re-render.
+  const [active, setActive] = useState<IntradayPoint | null>(null);
+  useAnimatedReaction(
+    () => (isActive.value ? { time: timeValue.value, price: priceValue.value } : null),
+    (current) => runOnJS(setActive)(current)
+  );
+
+  const shown = active ?? fallback;
+  const change = shown.price - previousClose;
+  const pct = previousClose !== 0 ? (change / previousClose) * 100 : 0;
+  const up = change >= 0;
+
+  return (
+    <View className="mb-1 flex-row items-baseline gap-2">
+      <Text className="text-lg font-semibold text-foreground">{shown.price.toFixed(2)}</Text>
+      <Text className="text-xs" style={{ color: up ? theme.gain : theme.loss }}>
+        {up ? '+' : ''}
+        {change.toFixed(2)} ({up ? '+' : ''}
+        {pct.toFixed(2)}%)
+      </Text>
+      <Text className="text-xs text-muted-foreground">{sessionTime(shown.time)}</Text>
+    </View>
   );
 }

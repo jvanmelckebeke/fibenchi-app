@@ -98,7 +98,7 @@ export default function AssetDetail() {
           <View>
             <Text className="mb-2 text-xs uppercase text-muted-foreground">{sessionDay}</Text>
             <IntradayChart
-              points={intradayPoints}
+              points={intraday.points}
               previousClose={intraday.previousClose}
               color={intradayUp ? theme.gain : theme.loss}
               baselineColor={theme.mutedForeground}
