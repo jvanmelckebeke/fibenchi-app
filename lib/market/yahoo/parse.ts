@@ -56,6 +56,17 @@ function deriveMarketState(meta: Record<string, unknown>): MarketState {
   return 'closed';
 }
 
+/**
+ * Is this symbol tradeable right now? Crypto trades 24/7 (flagged by Yahoo as
+ * CRYPTOCURRENCY, not by guessing at the `-USD` suffix); everything else is open
+ * only in its regular session — and `currentTradingPeriod` already carries each
+ * exchange's local window, so EU listings (.MI/.L/…) resolve to EU hours for free.
+ */
+function deriveIsOpen(meta: Record<string, unknown>, state: MarketState): boolean {
+  if (str(meta.instrumentType) === 'CRYPTOCURRENCY') return true;
+  return state === 'regular';
+}
+
 /** Quote from the chart response's `meta` block. */
 export function parseQuote(json: unknown): Quote {
   const meta = asRecord(chartResult(json).meta);
@@ -66,6 +77,7 @@ export function parseQuote(json: unknown): Quote {
     throw new Error('yahoo: quote missing symbol/price/previousClose');
   }
   const change = price - previousClose;
+  const marketState = deriveMarketState(meta);
   return {
     symbol,
     price,
@@ -77,7 +89,8 @@ export function parseQuote(json: unknown): Quote {
     volume: num(meta.regularMarketVolume),
     currency: str(meta.currency),
     shortName: str(meta.shortName) ?? str(meta.longName),
-    marketState: deriveMarketState(meta),
+    marketState,
+    isOpen: deriveIsOpen(meta, marketState),
     marketTime: num(meta.regularMarketTime) ?? Math.floor(Date.now() / 1000),
   };
 }

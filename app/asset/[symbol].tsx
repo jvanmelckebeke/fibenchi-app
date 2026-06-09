@@ -3,6 +3,7 @@ import { useColorScheme } from 'nativewind';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { FlashOnChange } from '@/components/flash-on-change';
 import { IntradayChart } from '@/components/intraday-chart';
 import { MovementGrid } from '@/components/movement-grid';
 import { StatTile } from '@/components/stat-tile';
@@ -78,7 +79,11 @@ export default function AssetDetail() {
         <View>
           <Text className="text-sm text-muted-foreground">{name}</Text>
           <View className="mt-1 flex-row items-end gap-3">
-            <Text className="text-3xl font-bold text-foreground">{quote ? quote.price.toFixed(2) : '—'}</Text>
+            <FlashOnChange value={quote?.price} radius={6}>
+              <Text className="px-1 text-3xl font-bold text-foreground">
+                {quote ? quote.price.toFixed(2) : '—'}
+              </Text>
+            </FlashOnChange>
             {changePct != null && (
               <Text className="pb-1 text-lg" style={{ color: trendColor }}>
                 {up ? '+' : ''}

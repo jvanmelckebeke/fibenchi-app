@@ -10,6 +10,7 @@ import { market } from '@/lib/market';
 import { THEME } from '@/lib/theme';
 import { useQuote } from '@/stores/quotes';
 
+import { FlashOnChange } from './flash-on-change';
 import { Sparkline } from './sparkline';
 
 interface TickerCardProps {
@@ -77,17 +78,19 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
 
           <Sparkline data={spark} color={trendColor} />
 
-          <View className="items-end" style={{ minWidth: 84 }}>
-            <Text className="text-base font-semibold text-foreground">
-              {quote ? quote.price.toFixed(2) : '—'}
-            </Text>
-            {changePct != null && (
-              <Text className="text-sm" style={{ color: trendColor }}>
-                {up ? '+' : ''}
-                {changePct.toFixed(2)}%
+          <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
+            <View className="items-end px-1 py-0.5">
+              <Text className="text-base font-semibold text-foreground">
+                {quote ? quote.price.toFixed(2) : '—'}
               </Text>
-            )}
-          </View>
+              {changePct != null && (
+                <Text className="text-sm" style={{ color: trendColor }}>
+                  {up ? '+' : ''}
+                  {changePct.toFixed(2)}%
+                </Text>
+              )}
+            </View>
+          </FlashOnChange>
         </CardContent>
       </Card>
     </Pressable>
