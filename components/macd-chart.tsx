@@ -3,23 +3,34 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { CartesianChart, Bar, Line } from 'victory-native';
 
+import { Text } from '@/components/ui/text';
 import { type MacdPoint } from '@/lib/compute';
 import { skiaColor, THEME } from '@/lib/theme';
 
 interface MacdChartProps {
   /** Converged MACD rows (see `macdSeries`); needs ≥ 2 to draw. */
   data: MacdPoint[];
+  /** Optional tag shown at the start of the legend row (e.g. the symbol). */
+  label?: string;
+}
+
+/** Compact tick formatting — MACD magnitude scales with price, so adapt precision. */
+function fmt(value: number): string {
+  const abs = Math.abs(value);
+  const decimals = abs >= 10 ? 1 : 2;
+  return value.toFixed(decimals);
 }
 
 /**
- * Minimal, axis-less 1-month MACD panel revealed behind a swiped ticker card:
- * a bicolour histogram (green above zero / red below) under the MACD and signal
- * lines. The histogram is two `Bar` series — positive-only and negative-only,
- * with zero (invisible) bars for the off-sign — because victory's `Bar` anchors
- * at `yScale(0)`, so each side grows from the zero baseline. The y-domain is
- * symmetric about 0 so that baseline sits mid-panel and crossovers read.
+ * Minimal 1-month MACD panel revealed behind a swiped ticker card: a legend
+ * (so the three series are distinguishable), a left y-axis with actual MACD
+ * values, then the chart — a bicolour histogram (green above zero / red below)
+ * under the MACD and signal lines. Histogram is two `Bar` series (positive-only
+ * / negative-only, zero-height off-sign bars) since victory's `Bar` anchors at
+ * `yScale(0)`. Y-domain is symmetric about 0, so the axis reads ±bound / 0 and
+ * the zero baseline sits mid-panel.
  */
-export function MacdChart({ data }: MacdChartProps) {
+export function MacdChart({ data, label }: MacdChartProps) {
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'dark'];
 
@@ -40,27 +51,56 @@ export function MacdChart({ data }: MacdChartProps) {
 
   if (rows.length < 2) return <View style={{ flex: 1 }} />;
 
-  const up = skiaColor(theme.gain);
-  const down = skiaColor(theme.loss);
-  const macdColor = skiaColor(theme.chart1);
-  const signalColor = skiaColor(theme.chart3);
-
   return (
     <View style={{ flex: 1 }}>
-      <CartesianChart
-        data={rows}
-        xKey="i"
-        yKeys={['histUp', 'histDown', 'macd', 'signal']}
-        domain={{ y: [-bound * 1.1, bound * 1.1] }}>
-        {({ points, chartBounds }) => (
-          <>
-            <Bar points={points.histUp} chartBounds={chartBounds} color={up} innerPadding={0.3} />
-            <Bar points={points.histDown} chartBounds={chartBounds} color={down} innerPadding={0.3} />
-            <Line points={points.macd} color={macdColor} strokeWidth={1.5} />
-            <Line points={points.signal} color={signalColor} strokeWidth={1.5} />
-          </>
-        )}
-      </CartesianChart>
+      <Legend label={label} theme={theme} />
+      <View className="flex-1 flex-row">
+        {/* Actual y-axis values, aligned to the symmetric ±bound / 0 domain. */}
+        <View className="w-9 items-end justify-between py-px pr-1">
+          <Text className="text-[9px] text-muted-foreground">{fmt(bound)}</Text>
+          <Text className="text-[9px] text-muted-foreground">0</Text>
+          <Text className="text-[9px] text-muted-foreground">{fmt(-bound)}</Text>
+        </View>
+        <View className="flex-1">
+          <CartesianChart
+            data={rows}
+            xKey="i"
+            yKeys={['histUp', 'histDown', 'macd', 'signal']}
+            domain={{ y: [-bound, bound] }}
+            domainPadding={{ top: 4, bottom: 4 }}>
+            {({ points, chartBounds }) => (
+              <>
+                <Bar points={points.histUp} chartBounds={chartBounds} color={skiaColor(theme.gain)} innerPadding={0.3} />
+                <Bar points={points.histDown} chartBounds={chartBounds} color={skiaColor(theme.loss)} innerPadding={0.3} />
+                <Line points={points.macd} color={skiaColor(theme.chart1)} strokeWidth={1.5} />
+                <Line points={points.signal} color={skiaColor(theme.chart3)} strokeWidth={1.5} />
+              </>
+            )}
+          </CartesianChart>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function Legend({ label, theme }: { label?: string; theme: (typeof THEME)['dark'] }) {
+  return (
+    <View className="flex-row items-center gap-3 px-1">
+      {label && <Text className="text-[10px] font-semibold text-muted-foreground">{label}</Text>}
+      <Key color={theme.chart1} text="MACD" />
+      <Key color={theme.chart3} text="Signal" />
+      <Key color={theme.gain} text="Hist" square />
+    </View>
+  );
+}
+
+function Key({ color, text, square }: { color: string; text: string; square?: boolean }) {
+  return (
+    <View className="flex-row items-center gap-1">
+      <View
+        style={{ width: 8, height: square ? 8 : 2, borderRadius: square ? 1 : 1, backgroundColor: color }}
+      />
+      <Text className="text-[10px] text-muted-foreground">{text}</Text>
     </View>
   );
 }

@@ -1,7 +1,13 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 interface SwipeRevealProps {
   /** Foreground content (the card). Slides left on swipe. */
@@ -13,7 +19,8 @@ interface SwipeRevealProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const SPRING = { damping: 18, stiffness: 180 } as const;
+// A single eased settle — no spring overshoot (a bouncy snap-back reads as toy-like).
+const SETTLE = { duration: 220, easing: Easing.out(Easing.cubic) } as const;
 
 /**
  * Swipe-left to reveal a panel behind the foreground (the RN analog of a
@@ -38,7 +45,7 @@ export function SwipeReveal({ children, reveal, openFraction = 1, style }: Swipe
   );
 
   const close = useCallback(() => {
-    tx.value = withSpring(0, SPRING, (finished) => {
+    tx.value = withTiming(0, SETTLE, (finished) => {
       if (finished) runOnJS(setActive)(false);
     });
   }, [tx]);
@@ -58,7 +65,7 @@ export function SwipeReveal({ children, reveal, openFraction = 1, style }: Swipe
     .onEnd((event) => {
       const open = width.value * openFraction;
       const shouldOpen = event.velocityX <= 500 && (tx.value < -open / 2 || event.velocityX < -500);
-      tx.value = withSpring(shouldOpen ? -open : 0, SPRING, (finished) => {
+      tx.value = withTiming(shouldOpen ? -open : 0, SETTLE, (finished) => {
         if (finished && !shouldOpen) runOnJS(setActive)(false);
       });
     });

@@ -67,13 +67,10 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
     <SwipeReveal
       reveal={
         <Card className="mx-3 my-1 flex-1">
-          <CardContent className="flex-1 flex-row items-center gap-2 py-2">
-            <Text className="w-12 text-xs font-semibold text-muted-foreground">{symbol}</Text>
-            {/* Glance-only: let taps/swipes fall through to close/pan, not the chart's own gestures. */}
-            <View pointerEvents="none" className="flex-1 self-stretch py-1">
-              <MacdChart data={macd} />
-            </View>
-          </CardContent>
+          {/* Glance-only: let taps/swipes fall through to close/pan, not the chart's own gestures. */}
+          <View pointerEvents="none" className="flex-1 px-2 py-1.5">
+            <MacdChart data={macd} label={symbol} />
+          </View>
         </Card>
       }>
       <Pressable onPress={() => router.push({ pathname: '/asset/[symbol]', params: { symbol } })}>
