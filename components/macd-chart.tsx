@@ -54,8 +54,8 @@ export function MacdChart({ data }: MacdChartProps) {
   const histColor = latest.hist >= 0 ? theme.gain : theme.loss;
 
   return (
-    <View className="flex-1 flex-row items-stretch">
-      <View className="w-[74px] justify-center gap-0.5">
+    <View className="flex-1 flex-row items-stretch gap-2">
+      <View className="w-[62px] justify-center gap-0.5">
         <Readout color={theme.chart1} name="MACD" value={fmt(latest.macd)} />
         <Readout color={theme.chart3} name="Signal" value={fmt(latest.signal)} />
         <Readout color={histColor} name="Hist" value={fmt(latest.hist)} />
@@ -84,7 +84,7 @@ export function MacdChart({ data }: MacdChartProps) {
 function Readout({ color, name, value }: { color: string; name: string; value: string }) {
   // The colour is the legend — no marker glyph.
   return (
-    <Text numberOfLines={1} className="text-[11px] font-medium" style={{ color }}>
+    <Text numberOfLines={1} className="text-[10px] font-medium" style={{ color }}>
       {name} {value}
     </Text>
   );
