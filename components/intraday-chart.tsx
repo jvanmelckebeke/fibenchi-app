@@ -46,6 +46,17 @@ export function IntradayChart({
     return { data: rows, domain: [lo, hi] as [number, number] };
   }, [points, previousClose]);
 
+  // x-axis time labels. victory's own axis needs a bundled Skia font; intraday
+  // bars are ~evenly spaced in time over the full-width plot, so evenly-spaced
+  // labels line up well without one.
+  const ticks = useMemo(() => {
+    const n = points.length;
+    if (n < 2) return [];
+    const count = Math.min(4, n);
+    const indices = [...new Set(Array.from({ length: count }, (_, k) => Math.round((k / (count - 1)) * (n - 1))))];
+    return indices.map((i) => sessionTime(points[i].time));
+  }, [points]);
+
   if (data.length < 2) return <View style={{ height }} />;
 
   const lineColor = skiaColor(color);
@@ -95,6 +106,13 @@ export function IntradayChart({
             </>
           )}
         </CartesianChart>
+      </View>
+      <View className="mt-1 flex-row justify-between">
+        {ticks.map((tick, i) => (
+          <Text key={i} className="text-[9px] text-muted-foreground">
+            {tick}
+          </Text>
+        ))}
       </View>
     </View>
   );
