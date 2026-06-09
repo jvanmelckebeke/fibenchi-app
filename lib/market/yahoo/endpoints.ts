@@ -27,3 +27,13 @@ export function chartPath(symbol: string, opts: ChartOptions): string {
 export function dailyRange(period: Period): string {
   return period;
 }
+
+/**
+ * The v1 search endpoint — crumb-free like the chart endpoint, so it rides the
+ * same `fetchYahooJson` path. We only want symbol matches, not news. Query
+ * string hand-built (no URLSearchParams under Hermes).
+ */
+export function searchPath(query: string, count = 8): string {
+  const q = `q=${encodeURIComponent(query)}&quotesCount=${count}&newsCount=0&listsCount=0`;
+  return `/v1/finance/search?${q}`;
+}

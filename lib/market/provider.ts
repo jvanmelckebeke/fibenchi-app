@@ -1,8 +1,8 @@
 import { TtlCache } from './cache';
-import type { IntradayResult, OhlcBar, Period, Quote } from './types';
+import type { IntradayResult, OhlcBar, Period, Quote, SymbolSearchResult } from './types';
 import { fetchYahooJson } from './yahoo/client';
-import { chartPath, dailyRange } from './yahoo/endpoints';
-import { parseBars, parseIntraday, parseQuote } from './yahoo/parse';
+import { chartPath, dailyRange, searchPath } from './yahoo/endpoints';
+import { parseBars, parseIntraday, parseQuote, parseSearchResults } from './yahoo/parse';
 
 // The live quote and today's intraday are parsed from the *same* 1m/1d chart
 // response, so they share one cached fetch per symbol rather than hitting Yahoo
@@ -15,6 +15,7 @@ import { parseBars, parseIntraday, parseQuote } from './yahoo/parse';
 // near-simultaneously), which the in-flight de-dup already mostly covers.
 const CHART_1D_TTL_MS = 4_000;
 const DAILY_TTL_MS = 60 * 60_000; // 1 hour — daily bars only change once per session
+const SEARCH_TTL_MS = 5 * 60_000; // 5 min — a query's matches are stable within a session
 
 /**
  * The swap-point for the market-data source. Keeps the public surface small:
@@ -28,6 +29,8 @@ export abstract class PriceProvider {
   abstract getIntraday(symbol: string): Promise<IntradayResult>;
   /** Daily OHLC bars over a period, for indicators + movement. */
   abstract getDaily(symbol: string, period: Period): Promise<OhlcBar[]>;
+  /** Symbol search (equity/ETF/index) — for the lookup screen. */
+  abstract searchSymbols(query: string): Promise<SymbolSearchResult[]>;
 }
 
 /**
@@ -60,6 +63,15 @@ export class YahooProvider extends PriceProvider {
     return this.cache.remember(`daily:${symbol}:${period}`, DAILY_TTL_MS, async () => {
       const json = await fetchYahooJson(chartPath(symbol, { interval: '1d', range: dailyRange(period) }));
       return parseBars(json);
+    });
+  }
+
+  searchSymbols(query: string): Promise<SymbolSearchResult[]> {
+    const q = query.trim();
+    if (q.length === 0) return Promise.resolve([]);
+    return this.cache.remember(`search:${q.toLowerCase()}`, SEARCH_TTL_MS, async () => {
+      const json = await fetchYahooJson(searchPath(q));
+      return parseSearchResults(json);
     });
   }
 }

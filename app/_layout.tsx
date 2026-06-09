@@ -31,6 +31,10 @@ export default function RootLayout() {
             <Stack.Screen name="(drawer)" />
             <Stack.Screen name="onboard" />
             <Stack.Screen name="asset/[symbol]" options={{ headerShown: true, title: '' }} />
+            <Stack.Screen
+              name="search"
+              options={{ headerShown: true, title: 'Search', presentation: 'modal' }}
+            />
           </Stack>
           <PortalHost />
         </ConfigProvider>
