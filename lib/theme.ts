@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
+import { useColorScheme } from 'nativewind';
 
 export const THEME = {
   light: {
@@ -70,6 +71,19 @@ export const THEME = {
     marketClosed: 'hsl(0 0% 55%)',
   },
 };
+
+/** The colour palette for one scheme — the shape every consumer reads. */
+export type ThemePalette = (typeof THEME)['dark'];
+
+/**
+ * The active palette, dark-first: falls back to dark when the system scheme is
+ * unset (matching the root layout). Replaces the `THEME[colorScheme ?? 'dark']`
+ * line that was repeated in every themed component.
+ */
+export function useTheme(): ThemePalette {
+  const { colorScheme } = useColorScheme();
+  return THEME[colorScheme ?? 'dark'];
+}
 
 /**
  * Make a theme colour safe to hand to Skia (and thus victory-native).

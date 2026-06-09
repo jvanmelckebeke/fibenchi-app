@@ -1,13 +1,18 @@
 import { useRouter } from 'expo-router';
-import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { buildIndicatorSnapshot, macdSeries, type MacdPoint } from '@/lib/compute';
+import {
+  buildIndicatorSnapshot,
+  indicatorHistoryPeriod,
+  macdSeries,
+  type MacdPoint,
+} from '@/lib/compute';
+import { signedPercent, trendColor } from '@/lib/format';
 import { market } from '@/lib/market';
-import { THEME } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { useQuote } from '@/stores/quotes';
 
 import { FlashOnChange } from './flash-on-change';
@@ -28,8 +33,7 @@ interface TickerCardProps {
  */
 export function TickerCard({ symbol, name }: TickerCardProps) {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'dark'];
+  const theme = useTheme();
   const quote = useQuote(symbol);
 
   const [spark, setSpark] = useState<number[]>([]);
@@ -45,7 +49,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
       })
       .catch(() => {});
     market
-      .getDaily(symbol, '6mo')
+      .getDaily(symbol, indicatorHistoryPeriod())
       .then((bars) => {
         if (cancelled) return;
         const snapshot = buildIndicatorSnapshot(bars);
@@ -62,8 +66,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
   }, [symbol]);
 
   const changePct = quote?.changePercent ?? null;
-  const up = (changePct ?? 0) >= 0;
-  const trendColor = up ? theme.gain : theme.loss;
+  const priceColor = changePct != null ? trendColor(changePct, theme) : theme.flat;
 
   return (
     <SwipeReveal
@@ -90,7 +93,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
               )}
             </View>
 
-            <Sparkline data={spark} color={trendColor} />
+            <Sparkline data={spark} color={priceColor} />
 
             <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
               <View className="items-end px-1 py-0.5">
@@ -98,9 +101,8 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
                   {quote ? quote.price.toFixed(2) : '—'}
                 </Text>
                 {changePct != null && (
-                  <Text className="text-sm" style={{ color: trendColor }}>
-                    {up ? '+' : ''}
-                    {changePct.toFixed(2)}%
+                  <Text className="text-sm" style={{ color: priceColor }}>
+                    {signedPercent(changePct)}
                   </Text>
                 )}
               </View>

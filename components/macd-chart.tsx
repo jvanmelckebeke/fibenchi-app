@@ -1,11 +1,10 @@
-import { useColorScheme } from 'nativewind';
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { CartesianChart, Bar, Line } from 'victory-native';
 
 import { Text } from '@/components/ui/text';
 import { type MacdPoint } from '@/lib/compute';
-import { skiaColor, THEME } from '@/lib/theme';
+import { skiaColor, useTheme } from '@/lib/theme';
 
 interface MacdChartProps {
   /** Converged MACD rows (see `macdSeries`); needs ≥ 2 to draw. */
@@ -31,8 +30,7 @@ function fmt(value: number): string {
  * history — see `macdSeries`) so a handful of days don't crowd the narrow chart.
  */
 export function MacdChart({ data }: MacdChartProps) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'dark'];
+  const theme = useTheme();
 
   const { rows, bound, latest } = useMemo(() => {
     const mapped = data.map((point, i) => ({

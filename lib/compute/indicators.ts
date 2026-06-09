@@ -1,4 +1,4 @@
-import type { OhlcBar } from '@/lib/market';
+import type { OhlcBar, Period } from '@/lib/market';
 import { macd, rsi, sma } from './series-math';
 
 /** Per-symbol context the indicator functions read from (extend with highs/lows/volumes for OHLC indicators). */
@@ -66,6 +66,30 @@ const INDICATOR_REGISTRY: IndicatorDef[] = [
 /** Max warmup across the registry — consumers fetch at least this many bars of history. */
 export function getMaxWarmup(): number {
   return INDICATOR_REGISTRY.reduce((max, def) => Math.max(max, def.warmup), 0);
+}
+
+/** Approx trading days per supported period (~21/month) — for sizing history fetches. */
+const PERIOD_TRADING_DAYS: Record<Period, number> = {
+  '1mo': 21,
+  '3mo': 63,
+  '6mo': 126,
+  '1y': 252,
+  '2y': 504,
+  '5y': 1260,
+};
+
+/**
+ * Smallest daily-history period that covers every indicator's warmup with room
+ * to settle. `warmup` is the bars to *first defined*; we fetch ~2× that so the
+ * EMA-based indicators (MACD/signal) are well past their seed, not barely
+ * defined — and so SMA-50 actually resolves instead of returning null on a short
+ * fetch. Derived from the registry: add a longer-warmup indicator and the
+ * fetched history widens automatically, rather than silently dropping values.
+ */
+export function indicatorHistoryPeriod(): Period {
+  const needed = getMaxWarmup() * 2;
+  const order: Period[] = ['1mo', '3mo', '6mo', '1y', '2y', '5y'];
+  return order.find((period) => PERIOD_TRADING_DAYS[period] >= needed) ?? '5y';
 }
 
 export interface ComputedIndicators {

@@ -1,14 +1,14 @@
 import { Inter_400Regular } from '@expo-google-fonts/inter';
 import { Circle, DashPathEffect, Line as SkiaLine, useFont, vec } from '@shopify/react-native-skia';
-import { useColorScheme } from 'nativewind';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useAnimatedReaction, useDerivedValue, runOnJS, type SharedValue } from 'react-native-reanimated';
 import { CartesianChart, Line, useChartPressState } from 'victory-native';
 
 import { Text } from '@/components/ui/text';
+import { signed, signedPercent, trendColor } from '@/lib/format';
 import { type IntradayPoint } from '@/lib/market';
-import { skiaColor, THEME } from '@/lib/theme';
+import { skiaColor, useTheme, type ThemePalette } from '@/lib/theme';
 import { sessionTime } from '@/lib/date';
 
 interface IntradayChartProps {
@@ -35,8 +35,7 @@ export function IntradayChart({
   baselineColor,
   height = 180,
 }: IntradayChartProps) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'dark'];
+  const theme = useTheme();
   const { state, isActive } = useChartPressState({ x: 0, y: { price: 0 } });
   // Bundled Skia font for the x-axis tick labels (null until loaded — victory
   // just omits labels until then).
@@ -159,7 +158,7 @@ function Readout({
   priceValue: SharedValue<number>;
   fallback: IntradayPoint;
   previousClose: number;
-  theme: (typeof THEME)['dark'];
+  theme: ThemePalette;
 }) {
   // Re-renders per drag frame, but it's isolated from the chart so the canvas
   // (which animates off shared values) doesn't re-render.
@@ -172,15 +171,12 @@ function Readout({
   const shown = active ?? fallback;
   const change = shown.price - previousClose;
   const pct = previousClose !== 0 ? (change / previousClose) * 100 : 0;
-  const up = change >= 0;
 
   return (
     <View className="mb-1 flex-row items-baseline gap-2">
       <Text className="text-lg font-semibold text-foreground">{shown.price.toFixed(2)}</Text>
-      <Text className="text-xs" style={{ color: up ? theme.gain : theme.loss }}>
-        {up ? '+' : ''}
-        {change.toFixed(2)} ({up ? '+' : ''}
-        {pct.toFixed(2)}%)
+      <Text className="text-xs" style={{ color: trendColor(change, theme) }}>
+        {signed(change)} ({signedPercent(pct)})
       </Text>
       <Text className="text-xs text-muted-foreground">{sessionTime(shown.time)}</Text>
     </View>
