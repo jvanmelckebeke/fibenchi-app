@@ -51,7 +51,9 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
         const snapshot = buildIndicatorSnapshot(bars);
         const rsiValue = snapshot?.values.rsi;
         setRsi(typeof rsiValue === 'number' ? rsiValue : null);
-        setMacd(macdSeries(bars));
+        // MACD computed over all bars (correct EMA convergence); show only the
+        // last ~10 days so they don't crowd the narrow reveal chart.
+        setMacd(macdSeries(bars, 10));
       })
       .catch(() => {});
     return () => {
@@ -66,10 +68,10 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
   return (
     <SwipeReveal
       reveal={
-        <Card className="my-1 mr-3 flex-1">
+        <Card className="my-1 mr-3 flex-1 overflow-hidden">
           {/* Glance-only: let taps/swipes fall through to close/pan, not the chart's own gestures. */}
           <View pointerEvents="none" className="flex-1 px-2 py-1.5">
-            <MacdChart data={macd} label={symbol} />
+            <MacdChart data={macd} />
           </View>
         </Card>
       }>

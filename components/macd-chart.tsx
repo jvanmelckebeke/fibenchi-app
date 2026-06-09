@@ -10,8 +10,6 @@ import { skiaColor, THEME } from '@/lib/theme';
 interface MacdChartProps {
   /** Converged MACD rows (see `macdSeries`); needs ≥ 2 to draw. */
   data: MacdPoint[];
-  /** Optional tag shown above the readout (e.g. the symbol). */
-  label?: string;
 }
 
 /** Compact value formatting — MACD magnitude scales with price, so adapt precision. */
@@ -22,16 +20,17 @@ function fmt(value: number): string {
 }
 
 /**
- * Minimal 1-month MACD panel revealed behind a swiped ticker card. A left
- * readout column names each series by colour and gives its latest value (blue
- * MACD, orange signal, green/red histogram) — that doubles as the legend and
- * keeps the chart itself narrow rather than full-bleed. The chart is a bicolour
- * histogram (green above zero / red below) under the MACD and signal lines;
- * histogram is two `Bar` series (positive-only / negative-only, zero-height
- * off-sign bars) since victory's `Bar` anchors at `yScale(0)`. Y-domain is
- * symmetric about 0 so the zero baseline sits mid-panel.
+ * Minimal MACD panel revealed beside a swiped ticker card. A left readout
+ * column gives each series' latest value as a colour-coded text line (blue MACD,
+ * orange signal, green/red histogram) — that is the legend, no marker glyphs.
+ * The chart is a bicolour histogram (green above zero / red below) under the
+ * MACD and signal lines; histogram is two `Bar` series (positive-only /
+ * negative-only, zero-height off-sign bars) since victory's `Bar` anchors at
+ * `yScale(0)`. Y-domain is symmetric about 0 so the zero baseline sits mid-panel.
+ * The caller passes a short tail of converged rows (calc still spans full
+ * history — see `macdSeries`) so a handful of days don't crowd the narrow chart.
  */
-export function MacdChart({ data, label }: MacdChartProps) {
+export function MacdChart({ data }: MacdChartProps) {
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'dark'];
 
@@ -56,13 +55,12 @@ export function MacdChart({ data, label }: MacdChartProps) {
 
   return (
     <View className="flex-1 flex-row items-stretch">
-      <View className="w-[58px] justify-center gap-px">
-        {label && <Text className="text-[10px] font-semibold text-foreground">{label}</Text>}
+      <View className="w-[74px] justify-center gap-0.5">
         <Readout color={theme.chart1} name="MACD" value={fmt(latest.macd)} />
         <Readout color={theme.chart3} name="Signal" value={fmt(latest.signal)} />
-        <Readout color={histColor} name="Hist" value={fmt(latest.hist)} square />
+        <Readout color={histColor} name="Hist" value={fmt(latest.hist)} />
       </View>
-      <View className="flex-1">
+      <View className="flex-1 overflow-hidden">
         <CartesianChart
           data={rows}
           xKey="i"
@@ -83,24 +81,11 @@ export function MacdChart({ data, label }: MacdChartProps) {
   );
 }
 
-function Readout({
-  color,
-  name,
-  value,
-  square,
-}: {
-  color: string;
-  name: string;
-  value: string;
-  square?: boolean;
-}) {
+function Readout({ color, name, value }: { color: string; name: string; value: string }) {
+  // The colour is the legend — no marker glyph.
   return (
-    <View className="flex-row items-center gap-1">
-      <View style={{ width: 7, height: square ? 7 : 2, borderRadius: 1, backgroundColor: color }} />
-      <Text className="text-[9px] text-muted-foreground">{name}</Text>
-      <Text className="text-[9px] font-semibold" style={{ color }}>
-        {value}
-      </Text>
-    </View>
+    <Text numberOfLines={1} className="text-[11px] font-medium" style={{ color }}>
+      {name} {value}
+    </Text>
   );
 }
