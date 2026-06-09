@@ -71,6 +71,28 @@ export const THEME = {
   },
 };
 
+/**
+ * Make a theme colour safe to hand to Skia (and thus victory-native).
+ *
+ * Skia bundles the old deanm CSS colour parser, which only accepts *comma*-
+ * separated `hsl(h, s%, l%)`. Our theme (like Tailwind/shadcn) uses the modern
+ * *space*-separated `hsl(h s% l%)`, which React Native core and react-native-svg
+ * parse fine — but Skia does not: it silently falls back to **black**. Rewrite
+ * space-separated `hsl()`/`hsla()` into the comma form Skia understands; pass
+ * anything else (hex, rgb, already-comma, named) through untouched.
+ */
+export function skiaColor(color: string): string {
+  // Hex / named have no spaces; rgb()/comma-hsl already have commas → leave them.
+  if (!color.includes(' ') || color.includes(',')) return color;
+  const match = /^hsla?\(([^)]+)\)$/i.exec(color.trim());
+  if (!match) return color;
+  // "142 70% 45%" or "142 70% 45% / 0.5" → ["142","70%","45%"(,"0.5")]
+  const parts = match[1].replace('/', ' ').split(/\s+/).filter(Boolean);
+  if (parts.length < 3) return color;
+  const [h, s, l, a] = parts;
+  return a != null ? `hsla(${h}, ${s}, ${l}, ${a})` : `hsl(${h}, ${s}, ${l})`;
+}
+
 export const NAV_THEME: Record<'light' | 'dark', Theme> = {
   light: {
     ...DefaultTheme,
