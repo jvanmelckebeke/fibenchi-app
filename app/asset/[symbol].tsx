@@ -8,6 +8,7 @@ import { IntradayChart } from '@/components/intraday-chart';
 import { IntradayGrid } from '@/components/intraday-grid';
 import { MovementGrid } from '@/components/movement-grid';
 import { StatTile } from '@/components/stat-tile';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
   buildIndicatorSnapshot,
@@ -56,6 +57,10 @@ export default function AssetDetail() {
 
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');
   const [bars, setBars] = useState<OhlcBar[]>([]);
+  // Which period `bars` currently holds — lets the view tell "data for the
+  // selected period" apart from stale bars left over from the prior selection,
+  // so a daily→daily switch shows a skeleton instead of the old chart.
+  const [barsPeriod, setBarsPeriod] = useState<Period | null>(null);
   const [indicatorBars, setIndicatorBars] = useState<OhlcBar[]>([]);
   const [intraday, setIntraday] = useState<IntradayResult | null>(null);
 
@@ -65,7 +70,10 @@ export default function AssetDetail() {
     if (!isDailyPeriod(timeframe)) return;
     let cancelled = false;
     market.getDaily(sym, timeframe).then((result) => {
-      if (!cancelled) setBars(result);
+      if (!cancelled) {
+        setBars(result);
+        setBarsPeriod(timeframe);
+      }
     });
     return () => {
       cancelled = true;
@@ -116,6 +124,11 @@ export default function AssetDetail() {
   const showIntraday = timeframe === '1d';
   const chartLabel = showIntraday ? sessionDay : PERIOD_LABEL[timeframe];
   const dailyColor = movement ? trendColor(movement.periodReturnPct, theme) : theme.flat;
+  // For 1d the (cached) intraday is the readiness signal; for a daily period it's
+  // bars that belong to *that* period (not stale ones from the prior selection).
+  // Until ready we show a skeleton rather than stale or empty content.
+  const dailyLoaded = isDailyPeriod(timeframe) && barsPeriod === timeframe;
+  const ready = showIntraday ? intraday != null : dailyLoaded;
 
   return (
     <>
@@ -141,21 +154,23 @@ export default function AssetDetail() {
         {/* Chart — reflects the selected timeframe */}
         <View>
           <Text className="mb-2 text-xs uppercase text-muted-foreground">{chartLabel}</Text>
-          {showIntraday ? (
-            intraday && intradayPoints.length > 1 ? (
+          {!ready ? (
+            <ChartSkeleton />
+          ) : showIntraday ? (
+            intradayPoints.length > 1 ? (
               <IntradayChart
-                points={intraday.points}
-                previousClose={intraday.previousClose}
+                points={intraday!.points}
+                previousClose={intraday!.previousClose}
                 color={intradayColor}
                 baselineColor={theme.mutedForeground}
               />
             ) : (
-              <ChartPlaceholder label={intraday ? 'No intraday data' : 'Loading…'} />
+              <ChartPlaceholder label="No intraday data" />
             )
           ) : bars.length > 1 ? (
             <DailyChart bars={bars} color={dailyColor} baselineColor={theme.mutedForeground} />
           ) : (
-            <ChartPlaceholder label="Loading…" />
+            <ChartPlaceholder label="No data" />
           )}
         </View>
 
@@ -177,16 +192,18 @@ export default function AssetDetail() {
               </Pressable>
             ))}
           </View>
-          {showIntraday ? (
+          {!ready ? (
+            <StatGridSkeleton tiles={showIntraday ? 4 : 5} />
+          ) : showIntraday ? (
             intradayStats ? (
               <IntradayGrid stats={intradayStats} />
             ) : (
-              <Text className="text-sm text-muted-foreground">Loading…</Text>
+              <Text className="text-sm text-muted-foreground">No intraday data</Text>
             )
           ) : movement ? (
             <MovementGrid stats={movement} />
           ) : (
-            <Text className="text-sm text-muted-foreground">Loading movement…</Text>
+            <Text className="text-sm text-muted-foreground">No data</Text>
           )}
         </View>
 
@@ -201,6 +218,27 @@ function ChartPlaceholder({ label }: { label: string }) {
   return (
     <View style={{ height: 180 }} className="items-center justify-center">
       <Text className="text-sm text-muted-foreground">{label}</Text>
+    </View>
+  );
+}
+
+/** Loading state for the chart — a readout-line block over a chart-height block. */
+function ChartSkeleton() {
+  return (
+    <View>
+      <Skeleton width={140} height={18} style={{ marginBottom: 8 }} />
+      <Skeleton height={180} />
+    </View>
+  );
+}
+
+/** Loading state for the stat grid — tile-shaped blocks matching `StatTile`. */
+function StatGridSkeleton({ tiles }: { tiles: number }) {
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {Array.from({ length: tiles }).map((_, i) => (
+        <Skeleton key={i} height={62} radius={8} style={{ minWidth: '30%', flexGrow: 1 }} />
+      ))}
     </View>
   );
 }
