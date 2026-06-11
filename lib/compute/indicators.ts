@@ -1,71 +1,48 @@
 import type { OhlcBar, Period } from '@/lib/market';
+import { INDICATOR_SPECS, type IndicatorSpec } from './generated/registry';
 import { macd, rsi, sma } from './series-math';
 
-/** Per-symbol context the indicator functions read from (extend with highs/lows/volumes for OHLC indicators). */
+/** Per-symbol context the kernels read from (extend with highs/lows/volumes for OHLC indicators). */
 interface SeriesCtx {
   closes: number[];
 }
 
-/**
- * Declarative indicator definition — data-driven registry (mirrors Fibenchi's
- * INDICATOR_REGISTRY). Adding an indicator is one entry here, not a new code path.
- * BB / ATR / ADX slot in later (they need highs/lows/volumes on SeriesCtx).
- */
-interface IndicatorDef {
-  key: string;
-  compute: (ctx: SeriesCtx) => Record<string, (number | null)[]>;
-  outputFields: string[];
-  decimals: number;
-  fieldDecimals?: Record<string, number>;
-  /** Bars needed before the latest value is converged — drives history depth. */
-  warmup: number;
-  /** Derive snapshot-only fields (e.g. MACD direction) from the latest row. */
-  snapshotDerived?: (latest: Record<string, number | null>) => Record<string, string | null>;
-}
+/** A numeric kernel: maps the series context + its spec to its output field series. */
+type Kernel = (ctx: SeriesCtx, spec: IndicatorSpec) => Record<string, (number | null)[]>;
 
-const INDICATOR_REGISTRY: IndicatorDef[] = [
-  {
-    key: 'rsi',
-    compute: ({ closes }) => ({ rsi: rsi(closes, 14) }),
-    outputFields: ['rsi'],
-    decimals: 2,
-    warmup: 14,
+/**
+ * Hand-written numeric kernels, dispatched by the `kernel` id in the *generated*
+ * registry (`generated/registry.ts`, emitted from Fibenchi's contract). The
+ * registry metadata — which indicators, params, warmup, decimals — is generated
+ * so it can't drift from the backend; the math lives here and is pinned to the
+ * pandas reference by the golden test (see `indicators.test.ts`). Promoting a
+ * web-only indicator to the app = one `platforms` flag upstream + a kernel here.
+ */
+const KERNELS: Record<string, Kernel> = {
+  rsi: ({ closes }, spec) => ({ [spec.outputFields[0]]: rsi(closes, spec.params.period) }),
+  sma: ({ closes }, spec) => ({ [spec.outputFields[0]]: sma(closes, spec.params.period) }),
+  macd: ({ closes }, spec) => {
+    const m = macd(closes, spec.params.fast, spec.params.slow, spec.params.signal);
+    return { macd: m.macd, macd_signal: m.signal, macd_hist: m.hist };
   },
-  {
-    key: 'sma_20',
-    compute: ({ closes }) => ({ sma_20: sma(closes, 20) }),
-    outputFields: ['sma_20'],
-    decimals: 4,
-    warmup: 20,
+};
+
+/** Snapshot-only derived fields (e.g. MACD direction), dispatched by the `snapshotDerived` tag. */
+const SNAPSHOT_DERIVED: Record<
+  string,
+  (latest: Record<string, number | null>) => Record<string, string | null>
+> = {
+  macd: (latest) => {
+    const line = latest.macd;
+    const signal = latest.macd_signal;
+    if (line === null || signal === null) return { macd_signal_dir: null };
+    return { macd_signal_dir: line > signal ? 'bullish' : 'bearish' };
   },
-  {
-    key: 'sma_50',
-    compute: ({ closes }) => ({ sma_50: sma(closes, 50) }),
-    outputFields: ['sma_50'],
-    decimals: 4,
-    warmup: 50,
-  },
-  {
-    key: 'macd',
-    compute: ({ closes }) => {
-      const m = macd(closes, 12, 26, 9);
-      return { macd: m.macd, macd_signal: m.signal, macd_hist: m.hist };
-    },
-    outputFields: ['macd', 'macd_signal', 'macd_hist'],
-    decimals: 4,
-    warmup: 35,
-    snapshotDerived: (latest) => {
-      const line = latest.macd;
-      const signal = latest.macd_signal;
-      if (line === null || signal === null) return { macd_signal_dir: null };
-      return { macd_signal_dir: line > signal ? 'bullish' : 'bearish' };
-    },
-  },
-];
+};
 
 /** Max warmup across the registry — consumers fetch at least this many bars of history. */
 export function getMaxWarmup(): number {
-  return INDICATOR_REGISTRY.reduce((max, def) => Math.max(max, def.warmup), 0);
+  return INDICATOR_SPECS.reduce((max, spec) => Math.max(max, spec.warmup), 0);
 }
 
 /** Approx trading days per supported period (~21/month) — for sizing history fetches. */
@@ -103,9 +80,10 @@ export interface ComputedIndicators {
 export function computeIndicators(bars: OhlcBar[]): ComputedIndicators {
   const ctx: SeriesCtx = { closes: bars.map((b) => b.close) };
   const fields: Record<string, (number | null)[]> = {};
-  for (const def of INDICATOR_REGISTRY) {
-    const output = def.compute(ctx);
-    for (const field of def.outputFields) {
+  for (const spec of INDICATOR_SPECS) {
+    const kernel = KERNELS[spec.kernel];
+    const output = kernel ? kernel(ctx, spec) : {};
+    for (const field of spec.outputFields) {
       fields[field] = output[field] ?? new Array(bars.length).fill(null);
     }
   }
@@ -131,15 +109,16 @@ export function buildIndicatorSnapshot(bars: OhlcBar[]): IndicatorSnapshot | nul
   const n = bars.length;
   const values: Record<string, number | string | null> = {};
 
-  for (const def of INDICATOR_REGISTRY) {
+  for (const spec of INDICATOR_SPECS) {
     const latest: Record<string, number | null> = {};
-    for (const field of def.outputFields) {
+    for (const field of spec.outputFields) {
       const value = computed.fields[field]?.[n - 1] ?? null;
       latest[field] = value;
-      values[field] = safeRound(value, def.fieldDecimals?.[field] ?? def.decimals);
+      values[field] = safeRound(value, spec.fieldDecimals[field] ?? spec.decimals);
     }
-    if (def.snapshotDerived) {
-      Object.assign(values, def.snapshotDerived(latest));
+    const derive = spec.snapshotDerived ? SNAPSHOT_DERIVED[spec.snapshotDerived] : undefined;
+    if (derive) {
+      Object.assign(values, derive(latest));
     }
   }
 
