@@ -1,6 +1,6 @@
 // Public surface of the on-device compute layer.
-export { computeMovementStats } from './movement';
-export type { MovementStats } from './movement';
+export { computeMovementStats, computeIntradayStats } from './movement';
+export type { MovementStats, IntradayStats } from './movement';
 export {
   buildIndicatorSnapshot,
   computeIndicators,

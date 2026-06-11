@@ -28,6 +28,12 @@ export function sessionTime(epochSeconds: number): string {
   return `${hh}:${mm}`;
 }
 
+/** Compact local date "Mon D", e.g. "Jun 7" from epoch *seconds* — for daily chart ticks. */
+export function chartDate(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 /** Compact local date-time, e.g. "Jun 7, 14:30" (no Intl). */
 export function formatTimestamp(ms: number): string {
   const d = new Date(ms);
