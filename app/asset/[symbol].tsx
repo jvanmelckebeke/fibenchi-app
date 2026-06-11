@@ -18,7 +18,7 @@ import {
 } from '@/lib/compute';
 import { useConfig } from '@/lib/config/provider';
 import { sessionLabel } from '@/lib/date';
-import { formatPrice, formatPriceMaybe, signedPercent, trendColor } from '@/lib/format';
+import { formatPrice, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
 import { market, type IntradayResult, type OhlcBar, type Period } from '@/lib/market';
 import { useTheme, type ThemePalette } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -112,6 +112,10 @@ export default function AssetDetail() {
 
   const changePct = quote?.changePercent ?? null;
   const priceColor = changePct != null ? trendColor(changePct, theme) : theme.flat;
+  // One bundle of formatting hints, threaded to every price display below
+  // (`currency` is undefined until the quote loads — `formatPrice` falls back to
+  // a bare number until then).
+  const fmt: PriceFormat = { symbol: sym, currency: quote?.currency };
 
   const intradayPoints = intraday?.points ?? [];
   const lastIntraday = intradayPoints[intradayPoints.length - 1]?.price ?? 0;
@@ -140,7 +144,7 @@ export default function AssetDetail() {
           <View className="mt-1 flex-row items-end gap-3">
             <FlashOnChange value={quote?.price} radius={6}>
               <Text className="px-1 text-3xl font-bold text-foreground">
-                {quote ? formatPrice(quote.price, quote.currency) : '—'}
+                {quote ? formatPrice(quote.price, fmt) : '—'}
               </Text>
             </FlashOnChange>
             {changePct != null && (
@@ -163,7 +167,7 @@ export default function AssetDetail() {
                 previousClose={intraday!.previousClose}
                 color={intradayColor}
                 baselineColor={theme.mutedForeground}
-                currency={quote?.currency}
+                format={fmt}
               />
             ) : (
               <ChartPlaceholder label="No intraday data" />
@@ -173,7 +177,7 @@ export default function AssetDetail() {
               bars={bars}
               color={dailyColor}
               baselineColor={theme.mutedForeground}
-              currency={quote?.currency}
+              format={fmt}
             />
           ) : (
             <ChartPlaceholder label="No data" />
@@ -202,7 +206,7 @@ export default function AssetDetail() {
             <StatGridSkeleton tiles={showIntraday ? 4 : 5} />
           ) : showIntraday ? (
             intradayStats ? (
-              <IntradayGrid stats={intradayStats} currency={quote?.currency} />
+              <IntradayGrid stats={intradayStats} format={fmt} />
             ) : (
               <Text className="text-sm text-muted-foreground">No intraday data</Text>
             )
@@ -214,7 +218,7 @@ export default function AssetDetail() {
         </View>
 
         {/* Indicators */}
-        {snapshot && <Indicators snapshot={snapshot} theme={theme} currency={quote?.currency} />}
+        {snapshot && <Indicators snapshot={snapshot} theme={theme} format={fmt} />}
       </ScrollView>
     </>
   );
@@ -252,11 +256,11 @@ function StatGridSkeleton({ tiles }: { tiles: number }) {
 function Indicators({
   snapshot,
   theme,
-  currency,
+  format,
 }: {
   snapshot: NonNullable<ReturnType<typeof buildIndicatorSnapshot>>;
   theme: ThemePalette;
-  currency?: string;
+  format: PriceFormat;
 }) {
   const values = snapshot.values;
   const rsi = numValue(values.rsi);
@@ -282,14 +286,14 @@ function Indicators({
         {sma20 != null && (
           <StatTile
             label="SMA 20"
-            value={formatPriceMaybe(sma20, currency)}
+            value={formatPrice(sma20, format)}
             color={close >= sma20 ? theme.gain : theme.loss}
           />
         )}
         {sma50 != null && (
           <StatTile
             label="SMA 50"
-            value={formatPriceMaybe(sma50, currency)}
+            value={formatPrice(sma50, format)}
             color={close >= sma50 ? theme.gain : theme.loss}
           />
         )}

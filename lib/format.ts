@@ -38,9 +38,10 @@ export function signedPercent(value: number, decimals = 2): string {
   return `${signed(value, decimals)}%`;
 }
 
-// Currency display. Symbols/decimals ported from Fibenchi's `lib/format.ts`;
-// prices are already normalized to the major unit at the market parse boundary
-// (see `lib/market/yahoo/currency.ts`), so these only handle presentation.
+// Currency display. Symbols/decimals + index/yield handling ported from
+// Fibenchi's `lib/format.ts`. Prices are already normalized to the major unit at
+// the market parse boundary (see `lib/market/yahoo/currency.ts`), so these only
+// handle presentation.
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: '$',
@@ -58,6 +59,34 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 // Currencies conventionally shown without a fractional part.
 const ZERO_DECIMAL_CURRENCIES = new Set(['KRW', 'JPY', 'IDR', 'HUF', 'VND', 'CLP', 'TWD']);
 
+// Yield indices read as a percentage, not a price (no currency symbol).
+const YIELD_INDICES = new Set(['^TYX', '^TNX', '^FVX', '^IRX']);
+
+/**
+ * Everything needed to format a value for a given asset, bundled so it threads
+ * through the UI as one prop instead of separate `currency` / `symbol` / type
+ * args. Built once where the quote is in hand (`{ symbol, currency }`), then
+ * passed along.
+ */
+export interface PriceFormat {
+  /** Yahoo symbol — decides index vs priced, and the yield-index `%` suffix. */
+  symbol: string;
+  /** Resolved ISO 4217 code; undefined while the quote is still loading → bare number. */
+  currency?: string;
+}
+
+/** Indices (Yahoo prefixes them with `^`) are point values, not currency amounts. */
+function isIndex(symbol: string): boolean {
+  return symbol.startsWith('^');
+}
+
+/** Group thousands with commas, e.g. "1234567.8" → "1,234,567.8". */
+function groupThousands(fixed: string): string {
+  const [int, frac] = fixed.split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return frac !== undefined ? `${grouped}.${frac}` : grouped;
+}
+
 export function currencyDecimals(currency: string): number {
   return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
 }
@@ -67,15 +96,32 @@ export function currencySymbol(currency: string): string {
   return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? `${currency} `;
 }
 
-/** Price with its currency symbol and grouped thousands, e.g. "$1,234.56", "¥1,200". */
-export function formatPrice(value: number, currency: string, decimals?: number): string {
-  const fixed = value.toFixed(decimals ?? currencyDecimals(currency));
-  const [int, frac] = fixed.split('.');
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${currencySymbol(currency)}${frac !== undefined ? `${grouped}.${frac}` : grouped}`;
+/**
+ * Format a value for an asset, grouped by thousands. Indices render as a plain
+ * point value (a currency symbol on an index is meaningless), with a `%` suffix
+ * for yield indices (^TNX, …). Priced assets get their currency symbol; until
+ * the quote — and thus the currency — loads, they fall back to a bare number.
+ */
+export function formatPrice(value: number, fmt: PriceFormat): string {
+  if (isIndex(fmt.symbol)) {
+    const body = groupThousands(value.toFixed(2));
+    return YIELD_INDICES.has(fmt.symbol.toUpperCase()) ? `${body}%` : body;
+  }
+  if (!fmt.currency) return groupThousands(value.toFixed(2));
+  return `${currencySymbol(fmt.currency)}${groupThousands(value.toFixed(currencyDecimals(fmt.currency)))}`;
 }
 
-/** `formatPrice` when the currency is known; a bare 2-dp number while it loads. */
-export function formatPriceMaybe(value: number, currency: string | undefined): string {
-  return currency ? formatPrice(value, currency) : value.toFixed(2);
+/**
+ * Compact, asset-aware price for large magnitudes — "$1.5M", "€2B". Indices and
+ * sub-thousand values defer to `formatPrice`; the symbol is dropped while the
+ * currency is unknown.
+ */
+export function formatCompactPrice(value: number, fmt: PriceFormat): string {
+  const abs = Math.abs(value);
+  if (isIndex(fmt.symbol) || abs < 1e3) return formatPrice(value, fmt);
+  const sym = fmt.currency ? currencySymbol(fmt.currency) : '';
+  const [divisor, suffix] = abs >= 1e9 ? [1e9, 'B'] : abs >= 1e6 ? [1e6, 'M'] : [1e3, 'K'];
+  let scaled = (value / divisor).toFixed(1);
+  if (scaled.endsWith('.0')) scaled = scaled.slice(0, -2);
+  return `${sym}${scaled}${suffix}`;
 }

@@ -98,7 +98,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
             <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
               <View className="items-end px-1 py-0.5">
                 <Text className="text-base font-semibold text-foreground">
-                  {quote ? formatPrice(quote.price, quote.currency) : '—'}
+                  {quote ? formatPrice(quote.price, { symbol, currency: quote.currency }) : '—'}
                 </Text>
                 {changePct != null && (
                   <Text className="text-sm" style={{ color: priceColor }}>

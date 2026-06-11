@@ -1,5 +1,6 @@
 import { PriceLineChart } from '@/components/price-line-chart';
 import { sessionTime } from '@/lib/date';
+import { type PriceFormat } from '@/lib/format';
 import { type IntradayPoint } from '@/lib/market';
 
 interface IntradayChartProps {
@@ -9,8 +10,8 @@ interface IntradayChartProps {
   previousClose: number;
   color: string;
   baselineColor: string;
-  /** ISO 4217 code for the readout price. */
-  currency?: string;
+  /** Formatting hints for the readout price. */
+  format: PriceFormat;
   height?: number;
 }
 
@@ -24,7 +25,7 @@ export function IntradayChart({
   previousClose,
   color,
   baselineColor,
-  currency,
+  format,
   height,
 }: IntradayChartProps) {
   return (
@@ -34,7 +35,7 @@ export function IntradayChart({
       color={color}
       baselineColor={baselineColor}
       xFormat={sessionTime}
-      currency={currency}
+      format={format}
       height={height}
     />
   );

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { PriceLineChart } from '@/components/price-line-chart';
 import { chartDate } from '@/lib/date';
+import { type PriceFormat } from '@/lib/format';
 import { type OhlcBar } from '@/lib/market';
 
 interface DailyChartProps {
@@ -9,8 +10,8 @@ interface DailyChartProps {
   bars: OhlcBar[];
   color: string;
   baselineColor: string;
-  /** ISO 4217 code for the readout price. */
-  currency?: string;
+  /** Formatting hints for the readout price. */
+  format: PriceFormat;
   height?: number;
 }
 
@@ -19,7 +20,7 @@ interface DailyChartProps {
  * The baseline is the period's first close (so the line above/below it mirrors
  * the "period return"), and x labels are calendar dates.
  */
-export function DailyChart({ bars, color, baselineColor, currency, height }: DailyChartProps) {
+export function DailyChart({ bars, color, baselineColor, format, height }: DailyChartProps) {
   const points = useMemo(() => bars.map((bar) => ({ time: bar.time, price: bar.close })), [bars]);
   const baseline = bars[0]?.close ?? 0;
 
@@ -30,7 +31,7 @@ export function DailyChart({ bars, color, baselineColor, currency, height }: Dai
       color={color}
       baselineColor={baselineColor}
       xFormat={chartDate}
-      currency={currency}
+      format={format}
       height={height}
     />
   );
