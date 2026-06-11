@@ -6,7 +6,7 @@ import { useAnimatedReaction, useDerivedValue, runOnJS, type SharedValue } from 
 import { CartesianChart, Line, useChartPressState } from 'victory-native';
 
 import { Text } from '@/components/ui/text';
-import { signed, signedPercent, trendColor } from '@/lib/format';
+import { formatPrice, signed, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
 import { skiaColor, useTheme, type ThemePalette } from '@/lib/theme';
 
 /** A single (time, price) sample — daily close or intraday print. */
@@ -29,6 +29,8 @@ interface PriceLineChartProps {
   baselineColor: string;
   /** Formats an x value (epoch seconds) for the axis ticks and the readout. */
   xFormat: (epochSeconds: number) => string;
+  /** Formatting hints for the readout price (symbol + currency). */
+  format: PriceFormat;
   height?: number;
 }
 
@@ -50,6 +52,7 @@ export function PriceLineChart({
   color,
   baselineColor,
   xFormat,
+  format,
   height = 180,
 }: PriceLineChartProps) {
   const theme = useTheme();
@@ -81,6 +84,7 @@ export function PriceLineChart({
         fallback={points[points.length - 1]}
         baseline={baseline}
         xFormat={xFormat}
+        format={format}
         theme={theme}
       />
       <View style={{ height }}>
@@ -170,6 +174,7 @@ function Readout({
   fallback,
   baseline,
   xFormat,
+  format,
   theme,
 }: {
   isActive: SharedValue<boolean>;
@@ -178,6 +183,7 @@ function Readout({
   fallback: PriceLinePoint;
   baseline: number;
   xFormat: (epochSeconds: number) => string;
+  format: PriceFormat;
   theme: ThemePalette;
 }) {
   // Re-renders per drag frame, but it's isolated from the chart so the canvas
@@ -194,7 +200,9 @@ function Readout({
 
   return (
     <View className="mb-1 flex-row items-baseline gap-2">
-      <Text className="text-lg font-semibold text-foreground">{shown.price.toFixed(2)}</Text>
+      <Text className="text-lg font-semibold text-foreground">
+        {formatPrice(shown.price, format)}
+      </Text>
       <Text className="text-xs" style={{ color: trendColor(change, theme) }}>
         {signed(change)} ({signedPercent(pct)})
       </Text>
