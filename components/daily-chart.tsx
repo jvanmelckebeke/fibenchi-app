@@ -9,6 +9,8 @@ interface DailyChartProps {
   bars: OhlcBar[];
   color: string;
   baselineColor: string;
+  /** ISO 4217 code for the readout price. */
+  currency?: string;
   height?: number;
 }
 
@@ -17,7 +19,7 @@ interface DailyChartProps {
  * The baseline is the period's first close (so the line above/below it mirrors
  * the "period return"), and x labels are calendar dates.
  */
-export function DailyChart({ bars, color, baselineColor, height }: DailyChartProps) {
+export function DailyChart({ bars, color, baselineColor, currency, height }: DailyChartProps) {
   const points = useMemo(() => bars.map((bar) => ({ time: bar.time, price: bar.close })), [bars]);
   const baseline = bars[0]?.close ?? 0;
 
@@ -28,6 +30,7 @@ export function DailyChart({ bars, color, baselineColor, height }: DailyChartPro
       color={color}
       baselineColor={baselineColor}
       xFormat={chartDate}
+      currency={currency}
       height={height}
     />
   );

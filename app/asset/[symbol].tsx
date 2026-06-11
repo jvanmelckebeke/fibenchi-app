@@ -18,7 +18,7 @@ import {
 } from '@/lib/compute';
 import { useConfig } from '@/lib/config/provider';
 import { sessionLabel } from '@/lib/date';
-import { signedPercent, trendColor } from '@/lib/format';
+import { formatPrice, formatPriceMaybe, signedPercent, trendColor } from '@/lib/format';
 import { market, type IntradayResult, type OhlcBar, type Period } from '@/lib/market';
 import { useTheme, type ThemePalette } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -140,7 +140,7 @@ export default function AssetDetail() {
           <View className="mt-1 flex-row items-end gap-3">
             <FlashOnChange value={quote?.price} radius={6}>
               <Text className="px-1 text-3xl font-bold text-foreground">
-                {quote ? quote.price.toFixed(2) : '—'}
+                {quote ? formatPrice(quote.price, quote.currency) : '—'}
               </Text>
             </FlashOnChange>
             {changePct != null && (
@@ -163,12 +163,18 @@ export default function AssetDetail() {
                 previousClose={intraday!.previousClose}
                 color={intradayColor}
                 baselineColor={theme.mutedForeground}
+                currency={quote?.currency}
               />
             ) : (
               <ChartPlaceholder label="No intraday data" />
             )
           ) : bars.length > 1 ? (
-            <DailyChart bars={bars} color={dailyColor} baselineColor={theme.mutedForeground} />
+            <DailyChart
+              bars={bars}
+              color={dailyColor}
+              baselineColor={theme.mutedForeground}
+              currency={quote?.currency}
+            />
           ) : (
             <ChartPlaceholder label="No data" />
           )}
@@ -196,7 +202,7 @@ export default function AssetDetail() {
             <StatGridSkeleton tiles={showIntraday ? 4 : 5} />
           ) : showIntraday ? (
             intradayStats ? (
-              <IntradayGrid stats={intradayStats} />
+              <IntradayGrid stats={intradayStats} currency={quote?.currency} />
             ) : (
               <Text className="text-sm text-muted-foreground">No intraday data</Text>
             )
@@ -208,7 +214,7 @@ export default function AssetDetail() {
         </View>
 
         {/* Indicators */}
-        {snapshot && <Indicators snapshot={snapshot} theme={theme} />}
+        {snapshot && <Indicators snapshot={snapshot} theme={theme} currency={quote?.currency} />}
       </ScrollView>
     </>
   );
@@ -246,9 +252,11 @@ function StatGridSkeleton({ tiles }: { tiles: number }) {
 function Indicators({
   snapshot,
   theme,
+  currency,
 }: {
   snapshot: NonNullable<ReturnType<typeof buildIndicatorSnapshot>>;
   theme: ThemePalette;
+  currency?: string;
 }) {
   const values = snapshot.values;
   const rsi = numValue(values.rsi);
@@ -272,10 +280,18 @@ function Indicators({
           />
         )}
         {sma20 != null && (
-          <StatTile label="SMA 20" value={sma20.toFixed(2)} color={close >= sma20 ? theme.gain : theme.loss} />
+          <StatTile
+            label="SMA 20"
+            value={formatPriceMaybe(sma20, currency)}
+            color={close >= sma20 ? theme.gain : theme.loss}
+          />
         )}
         {sma50 != null && (
-          <StatTile label="SMA 50" value={sma50.toFixed(2)} color={close >= sma50 ? theme.gain : theme.loss} />
+          <StatTile
+            label="SMA 50"
+            value={formatPriceMaybe(sma50, currency)}
+            color={close >= sma50 ? theme.gain : theme.loss}
+          />
         )}
       </View>
     </View>

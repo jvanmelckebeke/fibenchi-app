@@ -37,3 +37,45 @@ export function signed(value: number, decimals = 2): string {
 export function signedPercent(value: number, decimals = 2): string {
   return `${signed(value, decimals)}%`;
 }
+
+// Currency display. Symbols/decimals ported from Fibenchi's `lib/format.ts`;
+// prices are already normalized to the major unit at the market parse boundary
+// (see `lib/market/yahoo/currency.ts`), so these only handle presentation.
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  GBX: '£',
+  ILS: '₪',
+  ILA: '₪',
+  ZAR: 'R',
+  JPY: '¥',
+  KRW: '₩',
+  CHF: 'CHF ',
+};
+
+// Currencies conventionally shown without a fractional part.
+const ZERO_DECIMAL_CURRENCIES = new Set(['KRW', 'JPY', 'IDR', 'HUF', 'VND', 'CLP', 'TWD']);
+
+export function currencyDecimals(currency: string): number {
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
+/** Symbol for a currency code; unknown codes fall back to the code + nbsp (e.g. "CAD 12.00"). */
+export function currencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? `${currency} `;
+}
+
+/** Price with its currency symbol and grouped thousands, e.g. "$1,234.56", "¥1,200". */
+export function formatPrice(value: number, currency: string, decimals?: number): string {
+  const fixed = value.toFixed(decimals ?? currencyDecimals(currency));
+  const [int, frac] = fixed.split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${currencySymbol(currency)}${frac !== undefined ? `${grouped}.${frac}` : grouped}`;
+}
+
+/** `formatPrice` when the currency is known; a bare 2-dp number while it loads. */
+export function formatPriceMaybe(value: number, currency: string | undefined): string {
+  return currency ? formatPrice(value, currency) : value.toFixed(2);
+}

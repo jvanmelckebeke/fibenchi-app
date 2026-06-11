@@ -10,7 +10,7 @@ import {
   macdSeries,
   type MacdPoint,
 } from '@/lib/compute';
-import { signedPercent, trendColor } from '@/lib/format';
+import { formatPrice, signedPercent, trendColor } from '@/lib/format';
 import { market } from '@/lib/market';
 import { useTheme } from '@/lib/theme';
 import { useQuote } from '@/stores/quotes';
@@ -98,7 +98,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
             <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
               <View className="items-end px-1 py-0.5">
                 <Text className="text-base font-semibold text-foreground">
-                  {quote ? quote.price.toFixed(2) : '—'}
+                  {quote ? formatPrice(quote.price, quote.currency) : '—'}
                 </Text>
                 {changePct != null && (
                   <Text className="text-sm" style={{ color: priceColor }}>

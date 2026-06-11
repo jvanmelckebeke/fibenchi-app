@@ -2,11 +2,11 @@ import { View } from 'react-native';
 
 import { StatTile } from '@/components/stat-tile';
 import type { IntradayStats } from '@/lib/compute';
-import { signedPercent, trendColor } from '@/lib/format';
+import { formatPriceMaybe, signedPercent, trendColor } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
 
 /** The 1d counterpart to `MovementGrid` — intraday-appropriate stats. */
-export function IntradayGrid({ stats }: { stats: IntradayStats }) {
+export function IntradayGrid({ stats, currency }: { stats: IntradayStats; currency?: string }) {
   const theme = useTheme();
 
   return (
@@ -16,8 +16,8 @@ export function IntradayGrid({ stats }: { stats: IntradayStats }) {
         value={signedPercent(stats.dayReturnPct)}
         color={trendColor(stats.dayReturnPct, theme)}
       />
-      <StatTile label="Intraday high" value={stats.high.toFixed(2)} />
-      <StatTile label="Intraday low" value={stats.low.toFixed(2)} />
+      <StatTile label="Intraday high" value={formatPriceMaybe(stats.high, currency)} />
+      <StatTile label="Intraday low" value={formatPriceMaybe(stats.low, currency)} />
       {stats.drawdownPct < 0 && (
         <StatTile label="Drawdown" value={signedPercent(stats.drawdownPct)} color={theme.loss} />
       )}

@@ -1,8 +1,19 @@
 import type { IntradayResult, MarketState, OhlcBar, Quote, SymbolSearchResult } from '../types';
+import { resolveCurrency } from './currency';
 
 // Boundary validation, hand-rolled (no Zod). Yahoo's unofficial JSON is messy —
 // null rows, missing fields, occasional shape changes — so parse defensively
 // here and let internal code trust the typed result.
+//
+// Prices are also *normalized* here: Yahoo quotes some markets in a 1/100
+// subunit (London pence, Tel Aviv agorot), so every price is divided by the
+// resolved currency divisor at this boundary. Internal types are therefore
+// always in the major unit, and the display layer only needs the symbol.
+
+/** Divide a price by the subunit divisor, preserving null. */
+function scale(value: number | null, divisor: number): number | null {
+  return value === null ? null : value / divisor;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null) {
@@ -71,11 +82,16 @@ function deriveIsOpen(meta: Record<string, unknown>, state: MarketState): boolea
 export function parseQuote(json: unknown): Quote {
   const meta = asRecord(chartResult(json).meta);
   const symbol = str(meta.symbol);
-  const price = num(meta.regularMarketPrice);
-  const previousClose = num(meta.previousClose) ?? num(meta.chartPreviousClose);
-  if (symbol === null || price === null || previousClose === null) {
+  const rawPrice = num(meta.regularMarketPrice);
+  const rawPrevClose = num(meta.previousClose) ?? num(meta.chartPreviousClose);
+  if (symbol === null || rawPrice === null || rawPrevClose === null) {
     throw new Error('yahoo: quote missing symbol/price/previousClose');
   }
+  // Resolve currency + subunit divisor, then normalize every price to the major
+  // unit before deriving change (a ratio, so % is divisor-invariant either way).
+  const { code, divisor } = resolveCurrency(str(meta.currency), symbol);
+  const price = rawPrice / divisor;
+  const previousClose = rawPrevClose / divisor;
   const change = price - previousClose;
   const marketState = deriveMarketState(meta);
   return {
@@ -84,10 +100,10 @@ export function parseQuote(json: unknown): Quote {
     previousClose,
     change,
     changePercent: previousClose !== 0 ? (change / previousClose) * 100 : 0,
-    dayHigh: num(meta.regularMarketDayHigh),
-    dayLow: num(meta.regularMarketDayLow),
+    dayHigh: scale(num(meta.regularMarketDayHigh), divisor),
+    dayLow: scale(num(meta.regularMarketDayLow), divisor),
     volume: num(meta.regularMarketVolume),
-    currency: str(meta.currency),
+    currency: code,
     shortName: str(meta.shortName) ?? str(meta.longName),
     marketState,
     isOpen: deriveIsOpen(meta, marketState),
@@ -98,6 +114,8 @@ export function parseQuote(json: unknown): Quote {
 /** OHLC bars (daily or intraday) from a chart response, skipping null rows. */
 export function parseBars(json: unknown): OhlcBar[] {
   const result = chartResult(json);
+  const meta = asRecord(result.meta);
+  const { divisor } = resolveCurrency(str(meta.currency), str(meta.symbol) ?? '');
   const timestamps = arr(result.timestamp);
   const indicators = asRecord(result.indicators);
 
@@ -115,16 +133,19 @@ export function parseBars(json: unknown): OhlcBar[] {
   const bars: OhlcBar[] = [];
   for (let i = 0; i < timestamps.length; i++) {
     const time = num(timestamps[i]);
-    const close = num(closes[i]);
+    const rawClose = num(closes[i]);
     // Yahoo emits null rows (holidays, gaps, the forming bar) — skip incomplete ones.
-    if (time === null || close === null) continue;
+    if (time === null || rawClose === null) continue;
+    // Normalize prices to the major unit (subunit markets quote in 1/100); volume
+    // is a count, so it's left as-is.
+    const close = rawClose / divisor;
     bars.push({
       time,
-      open: num(opens[i]) ?? close,
-      high: num(highs[i]) ?? close,
-      low: num(lows[i]) ?? close,
+      open: (num(opens[i]) ?? rawClose) / divisor,
+      high: (num(highs[i]) ?? rawClose) / divisor,
+      low: (num(lows[i]) ?? rawClose) / divisor,
       close,
-      adjClose: num(adjcloses[i]),
+      adjClose: scale(num(adjcloses[i]), divisor),
       volume: num(volumes[i]),
     });
   }
@@ -134,8 +155,11 @@ export function parseBars(json: unknown): OhlcBar[] {
 /** Today's intraday trajectory (close per minute) + the prior-close baseline. */
 export function parseIntraday(json: unknown): IntradayResult {
   const meta = asRecord(chartResult(json).meta);
-  const previousClose = num(meta.previousClose) ?? num(meta.chartPreviousClose) ?? 0;
   const symbol = str(meta.symbol) ?? '';
+  const { divisor } = resolveCurrency(str(meta.currency), symbol);
+  // `parseBars` already normalizes its points; only previousClose (read straight
+  // from meta) needs the same divisor so the baseline matches the trajectory.
+  const previousClose = (num(meta.previousClose) ?? num(meta.chartPreviousClose) ?? 0) / divisor;
   const points = parseBars(json).map((bar) => ({ time: bar.time, price: bar.close }));
   return { symbol, previousClose, points };
 }

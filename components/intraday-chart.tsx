@@ -9,6 +9,8 @@ interface IntradayChartProps {
   previousClose: number;
   color: string;
   baselineColor: string;
+  /** ISO 4217 code for the readout price. */
+  currency?: string;
   height?: number;
 }
 
@@ -17,7 +19,14 @@ interface IntradayChartProps {
  * previous close as the baseline and clock-time x labels. (`IntradayPoint` is
  * already `{ time, price }`, so it feeds the chart directly.)
  */
-export function IntradayChart({ points, previousClose, color, baselineColor, height }: IntradayChartProps) {
+export function IntradayChart({
+  points,
+  previousClose,
+  color,
+  baselineColor,
+  currency,
+  height,
+}: IntradayChartProps) {
   return (
     <PriceLineChart
       points={points}
@@ -25,6 +34,7 @@ export function IntradayChart({ points, previousClose, color, baselineColor, hei
       color={color}
       baselineColor={baselineColor}
       xFormat={sessionTime}
+      currency={currency}
       height={height}
     />
   );

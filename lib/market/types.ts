@@ -15,7 +15,8 @@ export interface Quote {
   dayHigh: number | null;
   dayLow: number | null;
   volume: number | null;
-  currency: string | null;
+  /** Resolved ISO 4217 display code (major unit, e.g. `GBP`). Always set — see `resolveCurrency`. */
+  currency: string;
   shortName: string | null;
   marketState: MarketState;
   /**
