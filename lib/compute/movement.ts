@@ -1,4 +1,4 @@
-import type { OhlcBar } from '@/lib/market';
+import type { IntradayResult, OhlcBar } from '@/lib/market';
 
 interface DailyExtreme {
   /** Close-to-close percentage change for the day. */
@@ -99,5 +99,52 @@ export function computeMovementStats(bars: OhlcBar[]): MovementStats | null {
     upDays,
     downDays,
     tradingDays: bars.length - 1,
+  };
+}
+
+export interface IntradayStats {
+  /** Today's return measured from the previous session's close, as a percentage. */
+  dayReturnPct: number;
+  /** Highest intraday price. */
+  high: number;
+  /** Lowest intraday price. */
+  low: number;
+  /** Largest peak-to-trough decline within the session, as a (≤ 0) percentage. */
+  drawdownPct: number;
+}
+
+/**
+ * Intraday counterpart to `computeMovementStats` for the `1d` selection, where
+ * day-over-day metrics don't apply. Derives the day return (vs the prior close),
+ * the session high/low, and the running-peak intraday drawdown from the trajectory
+ * points. Returns null when there's too little data (< 2 points) or the previous
+ * close is invalid (can't form a return baseline).
+ */
+export function computeIntradayStats(intraday: IntradayResult): IntradayStats | null {
+  const { points, previousClose } = intraday;
+  if (points.length < 2 || previousClose <= 0) return null;
+
+  let high = points[0].price;
+  let low = points[0].price;
+  let peak = points[0].price;
+  let drawdownPct = 0;
+
+  for (const { price } of points) {
+    if (price > high) high = price;
+    if (price < low) low = price;
+    if (price > peak) {
+      peak = price;
+    } else if (peak > 0) {
+      const ddPct = (price / peak - 1) * 100;
+      if (ddPct < drawdownPct) drawdownPct = ddPct;
+    }
+  }
+
+  const last = points[points.length - 1].price;
+  return {
+    dayReturnPct: (last / previousClose - 1) * 100,
+    high,
+    low,
+    drawdownPct,
   };
 }
