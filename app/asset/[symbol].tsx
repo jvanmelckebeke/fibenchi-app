@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { DailyChart } from '@/components/daily-chart';
@@ -15,12 +15,14 @@ import {
   computeIntradayStats,
   computeMovementStats,
   indicatorHistoryPeriod,
+  rsiZone,
 } from '@/lib/compute';
 import { useConfig } from '@/lib/config/provider';
 import { sessionLabel } from '@/lib/date';
-import { formatPrice, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
-import { market, type IntradayResult, type OhlcBar, type Period } from '@/lib/market';
+import { formatPrice, sessionBadge, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
+import { market, type Period } from '@/lib/market';
 import { useTheme, type ThemePalette } from '@/lib/theme';
+import { useAsync } from '@/lib/use-async';
 import { cn } from '@/lib/utils';
 import { usePolledQuotes, useQuote } from '@/stores/quotes';
 
@@ -56,55 +58,27 @@ export default function AssetDetail() {
   const quote = useQuote(sym);
 
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');
-  const [bars, setBars] = useState<OhlcBar[]>([]);
-  // Which period `bars` currently holds — lets the view tell "data for the
-  // selected period" apart from stale bars left over from the prior selection,
-  // so a daily→daily switch shows a skeleton instead of the old chart.
-  const [barsPeriod, setBarsPeriod] = useState<Period | null>(null);
-  const [indicatorBars, setIndicatorBars] = useState<OhlcBar[]>([]);
-  const [intraday, setIntraday] = useState<IntradayResult | null>(null);
+  const dailyTimeframe = isDailyPeriod(timeframe) ? timeframe : null;
 
   // Daily bars back both the daily chart and its movement grid; only fetched
   // when a daily timeframe is selected (1d runs entirely off the intraday data).
-  useEffect(() => {
-    if (!isDailyPeriod(timeframe)) return;
-    let cancelled = false;
-    market.getDaily(sym, timeframe).then((result) => {
-      if (!cancelled) {
-        setBars(result);
-        setBarsPeriod(timeframe);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sym, timeframe]);
+  // `useAsync` nulls on a timeframe switch, so `bars != null` already means
+  // "bars for *this* selection" — a daily→daily switch shows a skeleton instead
+  // of the old chart, with no separate which-period bookkeeping.
+  const bars = useAsync(
+    () => (dailyTimeframe ? market.getDaily(sym, dailyTimeframe) : Promise.resolve(null)),
+    [sym, dailyTimeframe]
+  );
 
   // Indicators are point-in-time (latest RSI/SMA/MACD), so they always fetch
   // enough history to converge — independent of the selected timeframe. Otherwise
   // a short selection (e.g. 1mo) silently drops SMA-50 and skews the EMA-based
   // indicators. When the selected period equals this, the cache de-dups the two.
-  useEffect(() => {
-    let cancelled = false;
-    market.getDaily(sym, indicatorHistoryPeriod()).then((result) => {
-      if (!cancelled) setIndicatorBars(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sym]);
+  const indicatorBars = useAsync(() => market.getDaily(sym, indicatorHistoryPeriod()), [sym]);
 
   // Intraday is always fetched — it backs both the 1d chart/stats and lets the
   // user switch back to 1d without a refetch round-trip.
-  useEffect(() => {
-    let cancelled = false;
-    market.getIntraday(sym).then((result) => {
-      if (!cancelled) setIntraday(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sym]);
+  const intraday = useAsync(() => market.getIntraday(sym), [sym]);
 
   // During pre-market Yahoo's intraday `previousClose` is still the close *two*
   // sessions back (the 1d range rolls to the new day before the baseline does),
@@ -120,15 +94,18 @@ export default function AssetDetail() {
     [intraday, session, quote]
   );
 
-  const movement = useMemo(() => computeMovementStats(bars), [bars]);
+  const movement = useMemo(() => (bars ? computeMovementStats(bars) : null), [bars]);
   const intradayStats = useMemo(
     () => (intradayCorrected ? computeIntradayStats(intradayCorrected) : null),
     [intradayCorrected]
   );
-  const snapshot = useMemo(() => buildIndicatorSnapshot(indicatorBars), [indicatorBars]);
+  const snapshot = useMemo(
+    () => (indicatorBars ? buildIndicatorSnapshot(indicatorBars) : null),
+    [indicatorBars]
+  );
 
   const changePct = quote?.changePercent ?? null;
-  const priceColor = changePct != null ? trendColor(changePct, theme) : theme.flat;
+  const priceColor = trendColor(changePct, theme);
   // One bundle of formatting hints, threaded to every price display below
   // (`currency` is undefined until the quote loads — `formatPrice` falls back to
   // a bare number until then).
@@ -148,12 +125,7 @@ export default function AssetDetail() {
     session === 'post' && quote && quote.price > 0 && lastIntraday > 0
       ? (lastIntraday / quote.price - 1) * 100
       : null;
-  const sessionBadge =
-    session === 'pre'
-      ? { label: 'Pre-market', color: theme.marketPre }
-      : session === 'post'
-        ? { label: 'After-hours', color: theme.marketPost }
-        : null;
+  const badge = sessionBadge(session, theme);
   const sessionDay =
     intraday && intraday.points.length > 0
       ? sessionLabel(intraday.points[intraday.points.length - 1].time)
@@ -161,12 +133,11 @@ export default function AssetDetail() {
 
   const showIntraday = timeframe === '1d';
   const chartLabel = showIntraday ? sessionDay : PERIOD_LABEL[timeframe];
-  const dailyColor = movement ? trendColor(movement.periodReturnPct, theme) : theme.flat;
-  // For 1d the (cached) intraday is the readiness signal; for a daily period it's
-  // bars that belong to *that* period (not stale ones from the prior selection).
-  // Until ready we show a skeleton rather than stale or empty content.
-  const dailyLoaded = isDailyPeriod(timeframe) && barsPeriod === timeframe;
-  const ready = showIntraday ? intraday != null : dailyLoaded;
+  const dailyColor = trendColor(movement?.periodReturnPct, theme);
+  // For 1d the (cached) intraday is the readiness signal; for a daily period
+  // `bars != null` already means bars for *that* period (useAsync nulls on a
+  // switch). Until ready we show a skeleton rather than stale or empty content.
+  const ready = showIntraday ? intraday != null : bars != null;
 
   return (
     <>
@@ -193,9 +164,9 @@ export default function AssetDetail() {
         <View>
           <View className="mb-2 flex-row items-center gap-2">
             <Text className="text-xs uppercase text-muted-foreground">{chartLabel}</Text>
-            {showIntraday && sessionBadge && (
-              <Text className="text-xs uppercase" style={{ color: sessionBadge.color }}>
-                · {sessionBadge.label}
+            {showIntraday && badge && (
+              <Text className="text-xs uppercase" style={{ color: badge.color }}>
+                · {badge.label}
               </Text>
             )}
           </View>
@@ -215,7 +186,7 @@ export default function AssetDetail() {
             ) : (
               <ChartPlaceholder label="No intraday data" />
             )
-          ) : bars.length > 1 ? (
+          ) : bars && bars.length > 1 ? (
             <DailyChart
               bars={bars}
               color={dailyColor}
@@ -317,7 +288,10 @@ function Indicators({
   const macdDir = typeof values.macd_signal_dir === 'string' ? values.macd_signal_dir : null;
   const close = snapshot.close;
 
-  const rsiColor = rsi == null ? undefined : rsi > 70 ? theme.loss : rsi < 30 ? theme.gain : undefined;
+  const rsiColor =
+    rsi == null
+      ? undefined
+      : { overbought: theme.loss, oversold: theme.gain, neutral: undefined }[rsiZone(rsi)];
 
   return (
     <View>

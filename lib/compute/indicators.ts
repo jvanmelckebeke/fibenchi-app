@@ -131,35 +131,60 @@ export function buildIndicatorSnapshot(bars: OhlcBar[]): IndicatorSnapshot | nul
   };
 }
 
-/** One bar of the MACD sub-series — line, signal, histogram — for the MACD chart. */
+/** One bar of an indicator sub-series: `time` plus the requested fields, all converged. */
+type IndicatorPoint<F extends string> = { time: number } & { [K in F]: number };
+
+/**
+ * The last `count` *converged* bars of the given indicator fields — the shared
+ * recipe behind every reveal-chart series: compute over the full history
+ * (correct EMA/Wilder convergence), drop rows where any requested field is
+ * still in warmup, trim to the display window (~21 ≈ one trading month).
+ * `fieldNames` are the registry's `outputFields`, verbatim — a new indicator
+ * panel is one typed wrapper below, not another hand-rolled loop.
+ */
+function indicatorSeries<F extends string>(
+  bars: OhlcBar[],
+  fieldNames: readonly F[],
+  count: number
+): IndicatorPoint<F>[] {
+  const { time, fields } = computeIndicators(bars);
+  const rows: IndicatorPoint<F>[] = [];
+  for (let i = 0; i < time.length; i++) {
+    const row = { time: time[i] } as IndicatorPoint<F>;
+    let converged = true;
+    for (const name of fieldNames) {
+      const value = fields[name]?.[i];
+      if (value == null) {
+        converged = false;
+        break;
+      }
+      (row as Record<F, number>)[name] = value;
+    }
+    if (converged) rows.push(row);
+  }
+  return rows.slice(-count);
+}
+
+/** One bar of the MACD sub-series — field names match the contract registry. */
 export interface MacdPoint {
   time: number;
   macd: number;
-  signal: number;
-  hist: number;
+  macd_signal: number;
+  macd_hist: number;
 }
 
-/**
- * The last `count` *converged* bars of MACD line / signal / histogram, for the
- * swipe-to-reveal MACD chart. `computeIndicators` already produces the full
- * per-bar series, so this just drops warmup rows (where macd/signal are still
- * null) and trims to the requested window (~21 ≈ one trading month).
- */
+/** MACD line / signal / histogram for the swipe-to-reveal MACD chart. */
 export function macdSeries(bars: OhlcBar[], count = 21): MacdPoint[] {
-  const { time, fields } = computeIndicators(bars);
-  const macdLine = fields.macd ?? [];
-  const signalLine = fields.macd_signal ?? [];
-  const histLine = fields.macd_hist ?? [];
+  return indicatorSeries(bars, ['macd', 'macd_signal', 'macd_hist'], count);
+}
 
-  const rows: MacdPoint[] = [];
-  for (let i = 0; i < time.length; i++) {
-    const macd = macdLine[i];
-    const signal = signalLine[i];
-    const hist = histLine[i];
-    if (macd == null || signal == null || hist == null) continue;
-    rows.push({ time: time[i], macd, signal, hist });
-  }
-  return rows.slice(-count);
+/** RSI zone — the 70/30 thresholds decided once, not per consumer. */
+export type RsiZone = 'overbought' | 'oversold' | 'neutral';
+
+export function rsiZone(rsi: number): RsiZone {
+  if (rsi > 70) return 'overbought';
+  if (rsi < 30) return 'oversold';
+  return 'neutral';
 }
 
 /** One bar of the RSI sub-series — for the swipe-to-reveal RSI chart. */
@@ -168,22 +193,9 @@ export interface RsiPoint {
   rsi: number;
 }
 
-/**
- * The last `count` *converged* bars of RSI, for the swipe-right reveal chart.
- * Same recipe as `macdSeries`: compute over full history (correct Wilder
- * smoothing), drop warmup rows, trim to the display window.
- */
+/** RSI trail for the swipe-right reveal chart. */
 export function rsiSeries(bars: OhlcBar[], count = 21): RsiPoint[] {
-  const { time, fields } = computeIndicators(bars);
-  const rsiLine = fields.rsi ?? [];
-
-  const rows: RsiPoint[] = [];
-  for (let i = 0; i < time.length; i++) {
-    const rsi = rsiLine[i];
-    if (rsi == null) continue;
-    rows.push({ time: time[i], rsi });
-  }
-  return rows.slice(-count);
+  return indicatorSeries(bars, ['rsi'], count);
 }
 
 function safeRound(value: number | null, decimals: number): number | null {

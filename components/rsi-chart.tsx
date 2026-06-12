@@ -3,8 +3,8 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 
-import { Text } from '@/components/ui/text';
-import { type RsiPoint } from '@/lib/compute';
+import { Readout, ReadoutColumn } from '@/components/chart-readout';
+import { rsiZone, type RsiPoint } from '@/lib/compute';
 import { skiaColor, useTheme } from '@/lib/theme';
 
 interface RsiChartProps {
@@ -28,24 +28,19 @@ export function RsiChart({ data }: RsiChartProps) {
 
   if (rows.length < 2 || !latest) return <View style={{ flex: 1 }} />;
 
-  const zone =
-    latest.rsi >= 70
-      ? { label: 'Overbought', color: theme.loss }
-      : latest.rsi <= 30
-        ? { label: 'Oversold', color: theme.gain }
-        : { label: 'Neutral', color: theme.mutedForeground };
+  const zone = {
+    overbought: { label: 'Overbought', color: theme.loss },
+    oversold: { label: 'Oversold', color: theme.gain },
+    neutral: { label: 'Neutral', color: theme.mutedForeground },
+  }[rsiZone(latest.rsi)];
   const guideColor = skiaColor(theme.mutedForeground);
 
   return (
     <View className="flex-1 flex-row items-stretch gap-2">
-      <View className="w-[62px] justify-center gap-0.5">
-        <Text numberOfLines={1} className="text-[10px] font-medium" style={{ color: theme.chart2 }}>
-          RSI {latest.rsi.toFixed(1)}
-        </Text>
-        <Text numberOfLines={1} className="text-[10px] font-medium" style={{ color: zone.color }}>
-          {zone.label}
-        </Text>
-      </View>
+      <ReadoutColumn>
+        <Readout color={theme.chart2} label={`RSI ${latest.rsi.toFixed(1)}`} />
+        <Readout color={zone.color} label={zone.label} />
+      </ReadoutColumn>
       <View className="flex-1 overflow-hidden">
         <CartesianChart
           data={rows}

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { CartesianChart, Bar, Line } from 'victory-native';
 
-import { Text } from '@/components/ui/text';
+import { Readout, ReadoutColumn } from '@/components/chart-readout';
 import { type MacdPoint } from '@/lib/compute';
 import { skiaColor, useTheme } from '@/lib/theme';
 
@@ -36,12 +36,12 @@ export function MacdChart({ data }: MacdChartProps) {
     const mapped = data.map((point, i) => ({
       i,
       macd: point.macd,
-      signal: point.signal,
-      histUp: point.hist > 0 ? point.hist : 0,
-      histDown: point.hist < 0 ? point.hist : 0,
+      signal: point.macd_signal,
+      histUp: point.macd_hist > 0 ? point.macd_hist : 0,
+      histDown: point.macd_hist < 0 ? point.macd_hist : 0,
     }));
     const maxAbs = data.reduce(
-      (max, p) => Math.max(max, Math.abs(p.macd), Math.abs(p.signal), Math.abs(p.hist)),
+      (max, p) => Math.max(max, Math.abs(p.macd), Math.abs(p.macd_signal), Math.abs(p.macd_hist)),
       0
     );
     return { rows: mapped, bound: maxAbs || 1, latest: data[data.length - 1] ?? null };
@@ -49,15 +49,15 @@ export function MacdChart({ data }: MacdChartProps) {
 
   if (rows.length < 2 || !latest) return <View style={{ flex: 1 }} />;
 
-  const histColor = latest.hist >= 0 ? theme.gain : theme.loss;
+  const histColor = latest.macd_hist >= 0 ? theme.gain : theme.loss;
 
   return (
     <View className="flex-1 flex-row items-stretch gap-2">
-      <View className="w-[62px] justify-center gap-0.5">
-        <Readout color={theme.chart1} name="MACD" value={fmt(latest.macd)} />
-        <Readout color={theme.chart3} name="Signal" value={fmt(latest.signal)} />
-        <Readout color={histColor} name="Hist" value={fmt(latest.hist)} />
-      </View>
+      <ReadoutColumn>
+        <Readout color={theme.chart1} label={`MACD ${fmt(latest.macd)}`} />
+        <Readout color={theme.chart3} label={`Signal ${fmt(latest.macd_signal)}`} />
+        <Readout color={histColor} label={`Hist ${fmt(latest.macd_hist)}`} />
+      </ReadoutColumn>
       <View className="flex-1 overflow-hidden">
         <CartesianChart
           data={rows}
@@ -78,14 +78,5 @@ export function MacdChart({ data }: MacdChartProps) {
         </CartesianChart>
       </View>
     </View>
-  );
-}
-
-function Readout({ color, name, value }: { color: string; name: string; value: string }) {
-  // The colour is the legend — no marker glyph.
-  return (
-    <Text numberOfLines={1} className="text-[10px] font-medium" style={{ color }}>
-      {name} {value}
-    </Text>
   );
 }

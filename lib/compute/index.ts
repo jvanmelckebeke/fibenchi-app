@@ -8,5 +8,12 @@ export {
   indicatorHistoryPeriod,
   macdSeries,
   rsiSeries,
+  rsiZone,
 } from './indicators';
-export type { IndicatorSnapshot, ComputedIndicators, MacdPoint, RsiPoint } from './indicators';
+export type {
+  IndicatorSnapshot,
+  ComputedIndicators,
+  MacdPoint,
+  RsiPoint,
+  RsiZone,
+} from './indicators';

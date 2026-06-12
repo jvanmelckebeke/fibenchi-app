@@ -1,3 +1,4 @@
+import type { MarketState } from '@/lib/market';
 import type { ThemePalette } from '@/lib/theme';
 
 // Shared display helpers for the app's core glance semantics — signed numbers,
@@ -15,8 +16,12 @@ export function trend(value: number): Trend {
   return 'flat';
 }
 
-/** Finance colour for a change: gain (up) / loss (down) / flat (unchanged). */
-export function trendColor(value: number, theme: ThemePalette): string {
+/**
+ * Finance colour for a change: gain (up) / loss (down) / flat (unchanged).
+ * A missing change (quote not loaded yet) reads as flat too.
+ */
+export function trendColor(value: number | null | undefined, theme: ThemePalette): string {
+  if (value == null) return theme.flat;
   switch (trend(value)) {
     case 'up':
       return theme.gain;
@@ -25,6 +30,21 @@ export function trendColor(value: number, theme: ThemePalette): string {
     case 'flat':
       return theme.flat;
   }
+}
+
+/**
+ * Label + session colour for an extended-hours session; null during regular
+ * hours / closed (nothing to badge). The one place that decides what pre/post
+ * are called and which Fibenchi session colour they wear — backs the detail
+ * badge, the stat tiles and the sparkline tint.
+ */
+export function sessionBadge(
+  state: MarketState | null | undefined,
+  theme: ThemePalette
+): { label: string; color: string } | null {
+  if (state === 'pre') return { label: 'Pre-market', color: theme.marketPre };
+  if (state === 'post') return { label: 'After-hours', color: theme.marketPost };
+  return null;
 }
 
 /** Signed number, e.g. "+1.23", "-0.50", "0.00" (no plus when flat/negative). */
