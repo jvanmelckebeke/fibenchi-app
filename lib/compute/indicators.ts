@@ -162,6 +162,30 @@ export function macdSeries(bars: OhlcBar[], count = 21): MacdPoint[] {
   return rows.slice(-count);
 }
 
+/** One bar of the RSI sub-series — for the swipe-to-reveal RSI chart. */
+export interface RsiPoint {
+  time: number;
+  rsi: number;
+}
+
+/**
+ * The last `count` *converged* bars of RSI, for the swipe-right reveal chart.
+ * Same recipe as `macdSeries`: compute over full history (correct Wilder
+ * smoothing), drop warmup rows, trim to the display window.
+ */
+export function rsiSeries(bars: OhlcBar[], count = 21): RsiPoint[] {
+  const { time, fields } = computeIndicators(bars);
+  const rsiLine = fields.rsi ?? [];
+
+  const rows: RsiPoint[] = [];
+  for (let i = 0; i < time.length; i++) {
+    const rsi = rsiLine[i];
+    if (rsi == null) continue;
+    rows.push({ time: time[i], rsi });
+  }
+  return rows.slice(-count);
+}
+
 function safeRound(value: number | null, decimals: number): number | null {
   return value !== null && Number.isFinite(value) ? round(value, decimals) : null;
 }

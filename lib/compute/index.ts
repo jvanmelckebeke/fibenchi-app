@@ -7,5 +7,6 @@ export {
   getMaxWarmup,
   indicatorHistoryPeriod,
   macdSeries,
+  rsiSeries,
 } from './indicators';
-export type { IndicatorSnapshot, ComputedIndicators, MacdPoint } from './indicators';
+export type { IndicatorSnapshot, ComputedIndicators, MacdPoint, RsiPoint } from './indicators';
