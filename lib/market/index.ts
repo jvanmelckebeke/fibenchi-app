@@ -9,6 +9,7 @@ export type {
   OhlcBar,
   IntradayPoint,
   IntradayResult,
+  SessionWindow,
   SymbolSearchResult,
 } from './types';
 export { PriceProvider, YahooProvider };

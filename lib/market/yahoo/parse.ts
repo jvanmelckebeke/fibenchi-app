@@ -1,4 +1,11 @@
-import type { IntradayResult, MarketState, OhlcBar, Quote, SymbolSearchResult } from '../types';
+import type {
+  IntradayResult,
+  MarketState,
+  OhlcBar,
+  Quote,
+  SessionWindow,
+  SymbolSearchResult,
+} from '../types';
 import { resolveCurrency } from './currency';
 
 // Boundary validation, hand-rolled (no Zod). Yahoo's unofficial JSON is messy —
@@ -152,6 +159,17 @@ export function parseBars(json: unknown): OhlcBar[] {
   return bars;
 }
 
+/** The regular-session window from `meta.currentTradingPeriod`, or null. */
+function parseRegularWindow(meta: Record<string, unknown>): SessionWindow | null {
+  const periods = meta.currentTradingPeriod;
+  if (typeof periods !== 'object' || periods === null) return null;
+  const regular = (periods as Record<string, unknown>).regular;
+  if (typeof regular !== 'object' || regular === null) return null;
+  const start = num((regular as Record<string, unknown>).start);
+  const end = num((regular as Record<string, unknown>).end);
+  return start !== null && end !== null ? { start, end } : null;
+}
+
 /** Today's intraday trajectory (close per minute) + the prior-close baseline. */
 export function parseIntraday(json: unknown): IntradayResult {
   const meta = asRecord(chartResult(json).meta);
@@ -161,7 +179,7 @@ export function parseIntraday(json: unknown): IntradayResult {
   // from meta) needs the same divisor so the baseline matches the trajectory.
   const previousClose = (num(meta.previousClose) ?? num(meta.chartPreviousClose) ?? 0) / divisor;
   const points = parseBars(json).map((bar) => ({ time: bar.time, price: bar.close }));
-  return { symbol, previousClose, points };
+  return { symbol, previousClose, points, regularWindow: parseRegularWindow(meta) };
 }
 
 /** Map Yahoo `quoteType` to our coarse asset type. */

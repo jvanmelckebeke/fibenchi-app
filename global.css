@@ -32,9 +32,9 @@
     --gain: 142 72% 38%;
     --loss: 0 74% 50%;
     --flat: 0 0% 45%;
-    --market-pre: 38 92% 50%;
+    --market-pre: 217 91% 60%;
     --market-regular: 142 72% 40%;
-    --market-post: 217 91% 60%;
+    --market-post: 25 95% 53%;
     --market-closed: 0 0% 45%;
   }
 
@@ -66,9 +66,9 @@
     --gain: 142 70% 45%;
     --loss: 0 72% 58%;
     --flat: 0 0% 64%;
-    --market-pre: 38 92% 55%;
+    --market-pre: 217 91% 65%;
     --market-regular: 142 70% 45%;
-    --market-post: 217 91% 65%;
+    --market-post: 25 95% 58%;
     --market-closed: 0 0% 55%;
   }
 }

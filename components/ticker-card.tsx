@@ -67,6 +67,15 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
 
   const changePct = quote?.changePercent ?? null;
   const priceColor = changePct != null ? trendColor(changePct, theme) : theme.flat;
+  // Outside regular hours the sparkline is (partly) extended-hours data, so it
+  // takes the session colour — Fibenchi's blue/orange — while the price change
+  // stays green/red (it's still the regular-session move vs the previous close).
+  const sparkColor =
+    quote?.marketState === 'pre'
+      ? theme.marketPre
+      : quote?.marketState === 'post'
+        ? theme.marketPost
+        : priceColor;
 
   return (
     <SwipeReveal
@@ -93,7 +102,7 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
               )}
             </View>
 
-            <Sparkline data={spark} color={priceColor} />
+            <Sparkline data={spark} color={sparkColor} />
 
             <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
               <View className="items-end px-1 py-0.5">

@@ -106,8 +106,25 @@ export default function AssetDetail() {
     };
   }, [sym]);
 
+  // During pre-market Yahoo's intraday `previousClose` is still the close *two*
+  // sessions back (the 1d range rolls to the new day before the baseline does),
+  // which would compound yesterday's move into the pre-market change. The quote's
+  // `regularMarketPrice` is frozen at the last regular close outside regular
+  // hours — exactly the baseline a pre-market move should be measured from.
+  const session = quote?.marketState ?? null;
+  const intradayCorrected = useMemo(
+    () =>
+      intraday && session === 'pre' && quote
+        ? { ...intraday, previousClose: quote.price }
+        : intraday,
+    [intraday, session, quote]
+  );
+
   const movement = useMemo(() => computeMovementStats(bars), [bars]);
-  const intradayStats = useMemo(() => (intraday ? computeIntradayStats(intraday) : null), [intraday]);
+  const intradayStats = useMemo(
+    () => (intradayCorrected ? computeIntradayStats(intradayCorrected) : null),
+    [intradayCorrected]
+  );
   const snapshot = useMemo(() => buildIndicatorSnapshot(indicatorBars), [indicatorBars]);
 
   const changePct = quote?.changePercent ?? null;
@@ -119,7 +136,24 @@ export default function AssetDetail() {
 
   const intradayPoints = intraday?.points ?? [];
   const lastIntraday = intradayPoints[intradayPoints.length - 1]?.price ?? 0;
-  const intradayColor = trendColor(intraday ? lastIntraday - intraday.previousClose : 0, theme);
+  // During pre-market the trajectory is all extended-hours: line, dot and readout
+  // change take the session colour instead of green/red. After-hours keeps the
+  // green/red day change (the regular session dominates the chart) and surfaces
+  // the post move as its own orange stat tile.
+  const intradayColor =
+    session === 'pre'
+      ? theme.marketPre
+      : trendColor(intradayCorrected ? lastIntraday - intradayCorrected.previousClose : 0, theme);
+  const afterHoursPct =
+    session === 'post' && quote && quote.price > 0 && lastIntraday > 0
+      ? (lastIntraday / quote.price - 1) * 100
+      : null;
+  const sessionBadge =
+    session === 'pre'
+      ? { label: 'Pre-market', color: theme.marketPre }
+      : session === 'post'
+        ? { label: 'After-hours', color: theme.marketPost }
+        : null;
   const sessionDay =
     intraday && intraday.points.length > 0
       ? sessionLabel(intraday.points[intraday.points.length - 1].time)
@@ -157,17 +191,26 @@ export default function AssetDetail() {
 
         {/* Chart — reflects the selected timeframe */}
         <View>
-          <Text className="mb-2 text-xs uppercase text-muted-foreground">{chartLabel}</Text>
+          <View className="mb-2 flex-row items-center gap-2">
+            <Text className="text-xs uppercase text-muted-foreground">{chartLabel}</Text>
+            {showIntraday && sessionBadge && (
+              <Text className="text-xs uppercase" style={{ color: sessionBadge.color }}>
+                · {sessionBadge.label}
+              </Text>
+            )}
+          </View>
           {!ready ? (
             <ChartSkeleton />
           ) : showIntraday ? (
             intradayPoints.length > 1 ? (
               <IntradayChart
-                points={intraday!.points}
-                previousClose={intraday!.previousClose}
+                points={intradayCorrected!.points}
+                previousClose={intradayCorrected!.previousClose}
                 color={intradayColor}
                 baselineColor={theme.mutedForeground}
                 format={fmt}
+                regularWindow={intradayCorrected!.regularWindow}
+                changeColor={session === 'pre' ? theme.marketPre : undefined}
               />
             ) : (
               <ChartPlaceholder label="No intraday data" />
@@ -206,7 +249,12 @@ export default function AssetDetail() {
             <StatGridSkeleton tiles={showIntraday ? 4 : 5} />
           ) : showIntraday ? (
             intradayStats ? (
-              <IntradayGrid stats={intradayStats} format={fmt} />
+              <IntradayGrid
+                stats={intradayStats}
+                format={fmt}
+                session={session}
+                afterHoursPct={afterHoursPct}
+              />
             ) : (
               <Text className="text-sm text-muted-foreground">No intraday data</Text>
             )

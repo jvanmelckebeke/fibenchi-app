@@ -6,6 +6,7 @@ const intraday = (previousClose: number, prices: number[]): IntradayResult => ({
   symbol: 'TEST',
   previousClose,
   points: prices.map((price, i) => ({ time: 1_700_000_000 + i * 60, price })),
+  regularWindow: null,
 });
 
 describe('computeIntradayStats', () => {

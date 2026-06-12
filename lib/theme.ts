@@ -31,9 +31,10 @@ export const THEME = {
     gain: 'hsl(142 72% 38%)',
     loss: 'hsl(0 74% 50%)',
     flat: 'hsl(0 0% 45%)',
-    marketPre: 'hsl(38 92% 50%)',
+    // Session colours match Fibenchi's market-status-dot: pre = blue, post = orange.
+    marketPre: 'hsl(217 91% 60%)',
     marketRegular: 'hsl(142 72% 40%)',
-    marketPost: 'hsl(217 91% 60%)',
+    marketPost: 'hsl(25 95% 53%)',
     marketClosed: 'hsl(0 0% 45%)',
   },
   dark: {
@@ -65,9 +66,9 @@ export const THEME = {
     gain: 'hsl(142 70% 45%)',
     loss: 'hsl(0 72% 58%)',
     flat: 'hsl(0 0% 64%)',
-    marketPre: 'hsl(38 92% 55%)',
+    marketPre: 'hsl(217 91% 65%)',
     marketRegular: 'hsl(142 70% 45%)',
-    marketPost: 'hsl(217 91% 65%)',
+    marketPost: 'hsl(25 95% 58%)',
     marketClosed: 'hsl(0 0% 55%)',
   },
 };

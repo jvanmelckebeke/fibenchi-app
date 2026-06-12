@@ -16,6 +16,16 @@ export interface PriceLinePoint {
   price: number;
 }
 
+/**
+ * A contiguous run of points drawn in its own colour — how the intraday line
+ * distinguishes pre/regular/post sessions. `from` indexes into `points`; a
+ * segment runs to the next segment's `from` (the last one to the end).
+ */
+export interface PriceLineSegment {
+  from: number;
+  color: string;
+}
+
 interface PriceLineChartProps {
   /** Ascending (time, price) samples; needs ≥ 2 to draw. */
   points: PriceLinePoint[];
@@ -32,6 +42,14 @@ interface PriceLineChartProps {
   /** Formatting hints for the readout price (symbol + currency). */
   format: PriceFormat;
   height?: number;
+  /**
+   * Session-coloured runs (ascending `from`, covering the whole series). When
+   * given, they replace the single `color` line; `color` still drives the
+   * crosshair dot.
+   */
+  segments?: PriceLineSegment[];
+  /** Overrides the readout change colour (e.g. session blue for a pre-market move). */
+  changeColor?: string;
 }
 
 /**
@@ -54,6 +72,8 @@ export function PriceLineChart({
   xFormat,
   format,
   height = 180,
+  segments,
+  changeColor,
 }: PriceLineChartProps) {
   const theme = useTheme();
   const { state, isActive } = useChartPressState({ x: 0, y: { price: 0 } });
@@ -86,6 +106,7 @@ export function PriceLineChart({
         xFormat={xFormat}
         format={format}
         theme={theme}
+        changeColor={changeColor}
       />
       <View style={{ height }}>
         <CartesianChart
@@ -113,7 +134,20 @@ export function PriceLineChart({
                 right={chartBounds.right}
                 color={baseColor}
               />
-              <Line points={cp.price} color={lineColor} strokeWidth={2} />
+              {segments && segments.length > 0 ? (
+                // One <Line> per session run, sharing the boundary point so the
+                // path stays visually continuous across colour changes.
+                segments.map((segment, i) => (
+                  <Line
+                    key={`${segment.from}-${i}`}
+                    points={cp.price.slice(segment.from, (segments[i + 1]?.from ?? cp.price.length - 1) + 1)}
+                    color={skiaColor(segment.color)}
+                    strokeWidth={2}
+                  />
+                ))
+              ) : (
+                <Line points={cp.price} color={lineColor} strokeWidth={2} />
+              )}
               {isActive && (
                 <Crosshair
                   x={state.x.position}
@@ -176,6 +210,7 @@ function Readout({
   xFormat,
   format,
   theme,
+  changeColor,
 }: {
   isActive: SharedValue<boolean>;
   timeValue: SharedValue<number>;
@@ -185,6 +220,7 @@ function Readout({
   xFormat: (epochSeconds: number) => string;
   format: PriceFormat;
   theme: ThemePalette;
+  changeColor?: string;
 }) {
   // Re-renders per drag frame, but it's isolated from the chart so the canvas
   // (which animates off shared values) doesn't re-render.
@@ -203,7 +239,7 @@ function Readout({
       <Text className="text-lg font-semibold text-foreground">
         {formatPrice(shown.price, format)}
       </Text>
-      <Text className="text-xs" style={{ color: trendColor(change, theme) }}>
+      <Text className="text-xs" style={{ color: changeColor ?? trendColor(change, theme) }}>
         {signed(change)} ({signedPercent(pct)})
       </Text>
       <Text className="text-xs text-muted-foreground">{xFormat(shown.time)}</Text>

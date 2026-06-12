@@ -49,11 +49,23 @@ export interface IntradayPoint {
   price: number;
 }
 
+/** An exchange session window in epoch seconds (from `currentTradingPeriod`). */
+export interface SessionWindow {
+  start: number;
+  end: number;
+}
+
 /** Today's intraday trajectory for a symbol. */
 export interface IntradayResult {
   symbol: string;
   previousClose: number;
   points: IntradayPoint[];
+  /**
+   * The regular-session window of the day the points belong to, or null when
+   * Yahoo omits it — lets the UI split the trajectory into pre/regular/post
+   * segments instead of guessing sessions from clock time.
+   */
+  regularWindow: SessionWindow | null;
 }
 
 /** A symbol-search hit (from the local watchlist or Yahoo's search endpoint). */
