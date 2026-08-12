@@ -29,6 +29,13 @@ export interface Quote {
   isOpen: boolean;
   /** Epoch seconds of the last regular-market print. */
   marketTime: number;
+  /**
+   * This symbol's regular-session window, per `currentTradingPeriod` (null when
+   * Yahoo omits it). A closed venue's number is fixed until its next bell, so the
+   * poll loop sleeps to `start` instead of re-asking every minute for an answer
+   * that cannot change.
+   */
+  regularWindow: SessionWindow | null;
 }
 
 /** A single OHLC(V) bar (daily or intraday). */

@@ -13,6 +13,9 @@ export type {
   SymbolSearchResult,
 } from './types';
 export { PriceProvider, YahooProvider };
+/** Request/failure counters over the client's rolling window — see Settings. */
+export { requestStats } from './yahoo/client';
+export type { RequestStats } from './yahoo/client';
 
 /** Default app-wide market-data provider. */
 export const market: PriceProvider = new YahooProvider();

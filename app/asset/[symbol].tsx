@@ -54,7 +54,8 @@ export default function AssetDetail() {
   const { config } = useConfig();
   const name = config?.tickers?.[sym]?.name ?? sym;
 
-  usePolledQuotes(sym ? [sym] : []);
+  // Detail cadence: one symbol, and its chart is being watched.
+  usePolledQuotes(sym ? [sym] : [], 'detail');
   const quote = useQuote(sym);
 
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');

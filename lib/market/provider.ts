@@ -4,15 +4,24 @@ import { fetchYahooJson } from './yahoo/client';
 import { chartPath, dailyRange, searchPath } from './yahoo/endpoints';
 import { parseBars, parseIntraday, parseQuote, parseSearchResults } from './yahoo/parse';
 
-// The live quote and today's intraday are parsed from the *same* 1m/1d chart
-// response, so they share one cached fetch per symbol rather than hitting Yahoo
-// twice (a 15-ticker group would otherwise fire ~2x the requests on open).
+// A quote is read from `meta` alone — price, previousClose, day high/low, volume,
+// currency, currentTradingPeriod. So quotes poll `interval=1d&range=1d` (~1.2 KB)
+// rather than the 1m series (~4 KB for a US session, ~40 KB for crypto's 24h),
+// which is the same crumb-free endpoint and the same `meta` block: a poll that
+// downloads a full minute series to read its header off is the app's single
+// largest avoidable cost. The 1m fetch stays for the sparkline and the detail
+// chart, where the series is actually used.
 //
-// The TTL must stay *below* the live poll cadence (see LIVE_INTERVAL_MS in
-// stores/quotes.ts, ~5s) — otherwise a live poll would be served a stale cached
-// quote and the price would stop ticking. It only needs to be long enough to
-// absorb the mount-time burst (a card's getIntraday + the first getQuote firing
-// near-simultaneously), which the in-flight de-dup already mostly covers.
+// `interval=1d` omits `meta.previousClose` and carries only `chartPreviousClose`;
+// `parseQuote` already falls back between them, and the two agree across an open
+// EU session, a closed/pre US one, and crypto.
+//
+// Both TTLs must stay *below* the live poll cadence (see stores/quotes.ts) —
+// otherwise a live poll is served a stale cached quote and the price stops
+// ticking. They only need to absorb the mount-time burst (a card's getIntraday
+// and its first quote firing near-simultaneously), which the in-flight de-dup
+// already mostly covers.
+const QUOTE_TTL_MS = 4_000;
 const CHART_1D_TTL_MS = 4_000;
 const DAILY_TTL_MS = 60 * 60_000; // 1 hour — daily bars only change once per session
 const SEARCH_TTL_MS = 5 * 60_000; // 5 min — a query's matches are stable within a session
@@ -41,16 +50,27 @@ export abstract class PriceProvider {
 export class YahooProvider extends PriceProvider {
   private cache = new TtlCache();
 
-  /** Cached raw 1m/1d chart JSON — shared by getQuote + getIntraday. */
+  /** Cached raw 1m/1d chart JSON — the minute series, for sparklines/detail. */
   private chart1d(symbol: string): Promise<unknown> {
     return this.cache.remember(`chart1d:${symbol}`, CHART_1D_TTL_MS, () =>
       fetchYahooJson(chartPath(symbol, { interval: '1m', range: '1d', includePrePost: true }))
     );
   }
 
+  /** Cached meta-only chart JSON — the quote poll's payload. */
+  private quoteChart(symbol: string): Promise<unknown> {
+    return this.cache.remember(`quote:${symbol}`, QUOTE_TTL_MS, () =>
+      fetchYahooJson(chartPath(symbol, { interval: '1d', range: '1d' }))
+    );
+  }
+
   async getQuote(symbols: string[]): Promise<Quote[]> {
     const quotes = await Promise.all(
-      symbols.map((symbol) => this.chart1d(symbol).then(parseQuote).catch(() => null))
+      symbols.map((symbol) =>
+        this.quoteChart(symbol)
+          .then(parseQuote)
+          .catch(() => null)
+      )
     );
     return quotes.filter((quote): quote is Quote => quote !== null);
   }
@@ -61,7 +81,9 @@ export class YahooProvider extends PriceProvider {
 
   getDaily(symbol: string, period: Period): Promise<OhlcBar[]> {
     return this.cache.remember(`daily:${symbol}:${period}`, DAILY_TTL_MS, async () => {
-      const json = await fetchYahooJson(chartPath(symbol, { interval: '1d', range: dailyRange(period) }));
+      const json = await fetchYahooJson(
+        chartPath(symbol, { interval: '1d', range: dailyRange(period) })
+      );
       return parseBars(json);
     });
   }

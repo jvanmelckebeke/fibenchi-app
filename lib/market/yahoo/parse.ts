@@ -115,6 +115,7 @@ export function parseQuote(json: unknown): Quote {
     marketState,
     isOpen: deriveIsOpen(meta, marketState),
     marketTime: num(meta.regularMarketTime) ?? Math.floor(Date.now() / 1000),
+    regularWindow: parseRegularWindow(meta),
   };
 }
 
