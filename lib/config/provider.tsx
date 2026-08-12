@@ -5,7 +5,7 @@ import { storage } from '@/lib/storage';
 
 import { DEFAULT_ENDPOINT } from './constants';
 import { fetchConfig } from './fetch';
-import { safeDecodeConfig, type CompanionConfig } from './index';
+import { orderedGroups, safeDecodeConfig, type CompanionConfig } from './index';
 
 const STALE_MS = 24 * 60 * 60 * 1000; // 1 day
 
@@ -47,14 +47,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(() => storage.getLastSyncedAt() ?? null);
-  const [activeGroup, setActiveGroup] = useState<string | null>(() => config?.groups?.[0]?.name ?? null);
+  const [activeGroup, setActiveGroup] = useState<string | null>(() => orderedGroups(config)[0]?.name ?? null);
 
   const runSync = useCallback((url: string) => {
     setStatus('syncing');
     fetchConfig(url).then((result) => {
       if (result.ok) {
         setConfig(result.config);
-        setActiveGroup((current) => current ?? result.config.groups?.[0]?.name ?? null);
+        setActiveGroup((current) => current ?? orderedGroups(result.config)[0]?.name ?? null);
         storage.setConfigRaw(result.config);
         const ts = Date.now();
         storage.setLastSyncedAt(ts);
@@ -103,7 +103,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     storage.setLastSyncedAt(ts);
     setEndpointState(clean);
     setConfig(result.config);
-    setActiveGroup((current) => current ?? result.config.groups?.[0]?.name ?? null);
+    setActiveGroup((current) => current ?? orderedGroups(result.config)[0]?.name ?? null);
     setLastSyncedAt(ts);
     setError(null);
     setStatus('idle');

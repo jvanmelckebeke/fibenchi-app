@@ -11,6 +11,26 @@ export const SUPPORTED_CONFIG_VERSION = 1 as const;
 /** Decoded, validated config bundle — type inferred from the generated Zod schema (SoT). */
 export type CompanionConfig = z.infer<typeof companionConfigSchema>;
 
+/** A single group from the decoded bundle. */
+export type ConfigGroup = NonNullable<CompanionConfig['groups']>[number];
+
+/**
+ * Groups in display order: the **default group (Watchlist) first**, then the
+ * rest by the backend's `position`.
+ *
+ * The bundle arrives ordered by `(position, name)` alone, and the default group
+ * carries whatever position it happened to get when the custom groups were
+ * reordered — in practice the last one. Fibenchi's own sidebar pins the default
+ * above the custom groups (`groups-section.tsx`); this keeps the app on the same
+ * rule instead of inheriting a raw position that was never maintained for it.
+ */
+export function orderedGroups(config: CompanionConfig | null): ConfigGroup[] {
+  const groups = config?.groups ?? [];
+  return [...groups].sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault) || a.position - b.position
+  );
+}
+
 export type DecodeResult =
   | { ok: true; config: CompanionConfig }
   | { ok: false; reason: 'version'; error: string }

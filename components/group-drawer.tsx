@@ -1,8 +1,10 @@
 import { DrawerContentScrollView, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { orderedGroups } from '@/lib/config';
 import { useConfig } from '@/lib/config/provider';
 import { formatTimestamp } from '@/lib/date';
 import { cn } from '@/lib/utils';
@@ -10,7 +12,7 @@ import { cn } from '@/lib/utils';
 /** Drawer content: the group switcher + a Settings link and sync status. */
 export function GroupDrawer(props: DrawerContentComponentProps) {
   const { config, activeGroup, setActiveGroup, lastSyncedAt, status } = useConfig();
-  const groups = config?.groups ?? [];
+  const groups = useMemo(() => orderedGroups(config), [config]);
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
