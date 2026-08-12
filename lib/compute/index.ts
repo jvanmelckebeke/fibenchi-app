@@ -2,6 +2,7 @@
 export { computeMovementStats, computeIntradayStats } from './movement';
 export type { MovementStats, IntradayStats } from './movement';
 export {
+  SIGMA_MOVE_WARMUP,
   buildIndicatorSnapshot,
   computeIndicators,
   getMaxWarmup,
@@ -9,6 +10,7 @@ export {
   macdSeries,
   rsiSeries,
   rsiZone,
+  sigmaMove,
 } from './indicators';
 export type {
   IndicatorSnapshot,
@@ -16,4 +18,5 @@ export type {
   MacdPoint,
   RsiPoint,
   RsiZone,
+  SigmaMove,
 } from './indicators';

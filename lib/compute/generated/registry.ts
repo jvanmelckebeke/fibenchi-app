@@ -21,7 +21,10 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     },
     outputFields: ['rsi'],
     decimals: 2,
-    fieldDecimals: {},
+    fieldDecimals: {
+      rsi_delta: 1,
+      rsi_delta_sigma: 1,
+    },
     warmup: 14,
     snapshotDerived: null,
   },
@@ -59,8 +62,28 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     },
     outputFields: ['macd', 'macd_signal', 'macd_hist'],
     decimals: 4,
-    fieldDecimals: {},
+    fieldDecimals: {
+      macd_hist_delta: 2,
+      macd_hist_delta_sigma: 1,
+      macd_delta: 2,
+      macd_delta_sigma: 1,
+    },
     warmup: 35,
     snapshotDerived: 'macd',
+  },
+  {
+    key: 'vnr',
+    kernel: 'volatility_normalized_return',
+    params: {
+      lam: 0.94,
+    },
+    outputFields: ['vnr'],
+    decimals: 2,
+    fieldDecimals: {
+      vnr_sigma: 6,
+      vnr_gap_sessions: 0,
+    },
+    warmup: 60,
+    snapshotDerived: null,
   },
 ];

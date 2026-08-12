@@ -1,10 +1,16 @@
 import type { OhlcBar, Period } from '@/lib/market';
 import { INDICATOR_SPECS, type IndicatorSpec } from './generated/registry';
-import { macd, rsi, sma } from './series-math';
+import { macd, rsi, sessionGapDays, sma, volatilityNormalizedReturn } from './series-math';
 
 /** Per-symbol context the kernels read from (extend with highs/lows/volumes for OHLC indicators). */
 interface SeriesCtx {
   closes: number[];
+  /**
+   * Sessions between each bar and the previous one, computed once here the way
+   * the backend's `compute_indicators` owns a single gap series for every
+   * gap-aware kernel.
+   */
+  gapSessions: (number | null)[];
 }
 
 /** A numeric kernel: maps the series context + its spec to its output field series. */
@@ -17,6 +23,10 @@ type Kernel = (ctx: SeriesCtx, spec: IndicatorSpec) => Record<string, (number | 
  * so it can't drift from the backend; the math lives here and is pinned to the
  * pandas reference by the golden test (see `indicators.test.ts`). Promoting a
  * web-only indicator to the app = one `platforms` flag upstream + a kernel here.
+ *
+ * A kernel may emit **companion fields** beyond the spec's `outputFields` (the
+ * σ-Move forecast and gap flag, which the backend post-computes rather than
+ * returning from its kernel); `computeIndicators` keeps whatever it emits.
  */
 const KERNELS: Record<string, Kernel> = {
   rsi: ({ closes }, spec) => ({ [spec.outputFields[0]]: rsi(closes, spec.params.period) }),
@@ -24,6 +34,10 @@ const KERNELS: Record<string, Kernel> = {
   macd: ({ closes }, spec) => {
     const m = macd(closes, spec.params.fast, spec.params.slow, spec.params.signal);
     return { macd: m.macd, macd_signal: m.signal, macd_hist: m.hist };
+  },
+  volatility_normalized_return: ({ closes, gapSessions }, spec) => {
+    const s = volatilityNormalizedReturn(closes, spec.params.lam, gapSessions);
+    return { vnr: s.vnr, vnr_sigma: s.vnrSigma, vnr_gap_sessions: s.vnrGapSessions };
   },
 };
 
@@ -78,7 +92,10 @@ export interface ComputedIndicators {
 
 /** Compute every registered indicator's full series from daily bars. */
 export function computeIndicators(bars: OhlcBar[]): ComputedIndicators {
-  const ctx: SeriesCtx = { closes: bars.map((b) => b.close) };
+  const ctx: SeriesCtx = {
+    closes: bars.map((b) => b.close),
+    gapSessions: sessionGapDays(bars.map((b) => b.time)),
+  };
   const fields: Record<string, (number | null)[]> = {};
   for (const spec of INDICATOR_SPECS) {
     const kernel = KERNELS[spec.kernel];
@@ -86,9 +103,25 @@ export function computeIndicators(bars: OhlcBar[]): ComputedIndicators {
     for (const field of spec.outputFields) {
       fields[field] = output[field] ?? new Array(bars.length).fill(null);
     }
+    // Companion fields the kernel emitted beyond the contract's outputFields.
+    for (const [field, series] of Object.entries(output)) {
+      fields[field] ??= series;
+    }
   }
   return { time: bars.map((b) => b.time), close: ctx.closes, fields };
 }
+
+/**
+ * Field → decimals, flattened from the registry once: a field's own override if
+ * the contract carries one, else its indicator's default. Entries for fields the
+ * app doesn't compute (the web-only `*_delta` analysis fields) are inert.
+ */
+const FIELD_DECIMALS: Record<string, number> = Object.fromEntries(
+  INDICATOR_SPECS.flatMap((spec) => [
+    ...spec.outputFields.map((field) => [field, spec.fieldDecimals[field] ?? spec.decimals]),
+    ...Object.entries(spec.fieldDecimals),
+  ])
+);
 
 export interface IndicatorSnapshot {
   close: number;
@@ -107,26 +140,30 @@ export function buildIndicatorSnapshot(bars: OhlcBar[]): IndicatorSnapshot | nul
 
   const computed = computeIndicators(bars);
   const n = bars.length;
+  const latest: Record<string, number | null> = {};
   const values: Record<string, number | string | null> = {};
 
+  for (const [field, series] of Object.entries(computed.fields)) {
+    const value = series[n - 1] ?? null;
+    latest[field] = value;
+    values[field] = safeRound(value, FIELD_DECIMALS[field] ?? 4);
+  }
+
   for (const spec of INDICATOR_SPECS) {
-    const latest: Record<string, number | null> = {};
-    for (const field of spec.outputFields) {
-      const value = computed.fields[field]?.[n - 1] ?? null;
-      latest[field] = value;
-      values[field] = safeRound(value, spec.fieldDecimals[field] ?? spec.decimals);
-    }
     const derive = spec.snapshotDerived ? SNAPSHOT_DERIVED[spec.snapshotDerived] : undefined;
-    if (derive) {
-      Object.assign(values, derive(latest));
-    }
+    if (derive) Object.assign(values, derive(latest));
   }
 
   const close = bars[n - 1].close;
   const prevClose = bars[n - 2].close;
+  // A gap-flagged latest bar means the previous *row* is not the previous
+  // *session*: the difference would be a multi-session move mislabelled as a
+  // day change. Left null, matching the suppressed σ-Move beside it.
+  const spansGap = latest.vnr_gap_sessions !== null && latest.vnr_gap_sessions !== undefined;
   return {
     close: round(close, 2),
-    changePct: prevClose !== 0 ? round((close - prevClose) / prevClose * 100, 2) : null,
+    changePct:
+      prevClose !== 0 && !spansGap ? round(((close - prevClose) / prevClose) * 100, 2) : null,
     values,
   };
 }
@@ -196,6 +233,51 @@ export interface RsiPoint {
 /** RSI trail for the swipe-right reveal chart. */
 export function rsiSeries(bars: OhlcBar[], count = 21): RsiPoint[] {
   return indicatorSeries(bars, ['rsi'], count);
+}
+
+/** Sessions of returns σ-Move needs before it reports — the contract's warmup. */
+export const SIGMA_MOVE_WARMUP = INDICATOR_SPECS.find((spec) => spec.key === 'vnr')?.warmup ?? 60;
+
+/**
+ * σ-Move for one symbol, or the reason there isn't one. The Pulse ranks on
+ * `sigma` and explains the rest — so "no reading" is a value here, not a null
+ * the UI has to interpret. There is deliberately **no fallback to a provisional
+ * σ from a stale forecast**: an honest gap beats a plausible lie.
+ *
+ * - `scored` on `close` — the last daily bar's σ-Move.
+ * - `scored` on `live` — today's in-progress return scored against the forecast
+ *   built through the last completed session, which is how a move gets a σ
+ *   before its daily bar is written. Pass `dayReturn` as a fraction
+ *   (`price / previousClose - 1`) from the live quote.
+ * - `gap` — the return spans a hole in the daily series.
+ * - `warmup` — fewer than `SIGMA_MOVE_WARMUP` usable returns.
+ */
+export type SigmaMove =
+  | { kind: 'scored'; sigma: number; basis: 'live' | 'close' }
+  | { kind: 'gap'; sessions: number }
+  | { kind: 'warmup'; returns: number; needed: number };
+
+export function sigmaMove(bars: OhlcBar[], dayReturn?: number | null): SigmaMove {
+  const { fields } = computeIndicators(bars);
+  const n = bars.length;
+  const usableReturns = (fields.vnr_sigma ?? []).filter((v) => v !== null).length;
+  if (usableReturns < SIGMA_MOVE_WARMUP) {
+    return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
+  }
+
+  const gapSessions = fields.vnr_gap_sessions?.[n - 1] ?? null;
+  if (gapSessions !== null) return { kind: 'gap', sessions: gapSessions };
+
+  // Live basis: the forecast on the last completed bar is the one made *for*
+  // the in-progress day, so today's return divides by it directly.
+  const forecast = fields.vnr_sigma?.[n - 1] ?? null;
+  if (dayReturn !== null && dayReturn !== undefined && forecast !== null) {
+    return { kind: 'scored', sigma: dayReturn / forecast, basis: 'live' };
+  }
+
+  const latest = fields.vnr?.[n - 1] ?? null;
+  if (latest !== null) return { kind: 'scored', sigma: latest, basis: 'close' };
+  return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
 }
 
 function safeRound(value: number | null, decimals: number): number | null {

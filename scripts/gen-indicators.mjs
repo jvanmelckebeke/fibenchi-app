@@ -21,11 +21,11 @@ const specs = appIndicators.map((i) => ({
   params: i.params,
   outputFields: i.outputFields,
   decimals: i.decimals,
-  // Keep only field-decimal overrides that apply to a kernel output field
-  // (the contract's overrides target web-only *_delta analysis fields).
-  fieldDecimals: Object.fromEntries(
-    Object.entries(i.fieldDecimals ?? {}).filter(([f]) => i.outputFields.includes(f))
-  ),
+  // Every field-decimal override, verbatim. Most target fields the app doesn't
+  // compute (the web-only *_delta analysis fields) and are inert; the ones that
+  // matter are for kernel *companion* fields — σ-Move's vnr_sigma at 6 decimals
+  // is not in `outputFields`, because the backend post-computes it.
+  fieldDecimals: i.fieldDecimals ?? {},
   warmup: i.warmup,
   snapshotDerived: i.snapshotDerived,
 }));
