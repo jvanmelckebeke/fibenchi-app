@@ -1,4 +1,7 @@
-import { DrawerContentScrollView, type DrawerContentComponentProps } from '@react-navigation/drawer';
+import {
+  DrawerContentScrollView,
+  type DrawerContentComponentProps,
+} from '@react-navigation/drawer';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
@@ -18,6 +21,19 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       <Text className="px-4 pb-3 pt-2 text-xl font-bold text-foreground">Fibenchi</Text>
 
+      {/* The Pulse is pinned above the group list, not one of it: it's the
+          whole-book verdict, where every entry below is one slice of the book. */}
+      <Pressable
+        onPress={() => {
+          props.navigation.closeDrawer();
+          router.navigate('/');
+        }}
+        className="mx-2 my-0.5 flex-row items-center justify-between rounded-lg px-3 py-3">
+        <Text className="text-base font-medium text-foreground">Pulse</Text>
+        <Text className="text-xs text-muted-foreground">σ</Text>
+      </Pressable>
+      <View className="mx-4 my-1.5 h-[1px] bg-border" />
+
       {groups.map((group) => {
         const active = group.name === activeGroup;
         return (
@@ -26,16 +42,20 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
             onPress={() => {
               setActiveGroup(group.name);
               props.navigation.closeDrawer();
-              // Always return to the overview — otherwise picking a group from
-              // the Settings screen would just change the active group underneath
-              // it and leave you stuck on Settings.
-              router.navigate('/');
+              // Always go to the group screen — otherwise picking a group from
+              // Settings (or from the Pulse) would just change the active group
+              // underneath the current screen and leave you where you were.
+              router.navigate('/group');
             }}
             className={cn(
               'mx-2 my-0.5 flex-row items-center justify-between rounded-lg px-3 py-3',
               active && 'bg-accent'
             )}>
-            <Text className={cn('text-base', active ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+            <Text
+              className={cn(
+                'text-base',
+                active ? 'font-medium text-foreground' : 'text-muted-foreground'
+              )}>
               {group.name}
             </Text>
             <Text className="text-xs text-muted-foreground">{group.symbols?.length ?? 0}</Text>

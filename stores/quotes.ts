@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { market, type Quote } from '@/lib/market';
 
@@ -35,9 +35,18 @@ function subscribe(symbol: string, listener: () => void): () => void {
   return () => set.delete(listener);
 }
 
+// A book-wide revision counter alongside the per-symbol listeners. Per-symbol
+// subscription is what keeps a tick from re-rendering the whole list, but a
+// screen that *aggregates* the book (ranking, breadth) genuinely depends on every
+// symbol, and it can't call a hook per symbol when the count is dynamic.
+let revision = 0;
+const bookListeners = new Set<() => void>();
+
 function update(symbol: string, next: QuoteState): void {
   states.set(symbol, next);
+  revision++;
   listeners.get(symbol)?.forEach((listener) => listener());
+  bookListeners.forEach((listener) => listener());
 }
 
 function recordQuote(quote: Quote): void {
@@ -66,6 +75,30 @@ export function useQuoteState(symbol: string): QuoteState {
 }
 
 /**
+ * Subscribe to the whole book: re-renders on any symbol's tick and returns a
+ * snapshot keyed by symbol. For the Pulse, which ranks and counts across every
+ * symbol — a per-row subscription can't express that. Everything else should keep
+ * using `useQuote`, which re-renders one row.
+ */
+export function useQuoteBook(symbols: string[]): Record<string, QuoteState> {
+  const revisionNow = useSyncExternalStore(
+    (listener) => {
+      bookListeners.add(listener);
+      return () => bookListeners.delete(listener);
+    },
+    () => revision
+  );
+  const key = symbols.join(',');
+  return useMemo(() => {
+    const book: Record<string, QuoteState> = {};
+    for (const symbol of symbols) book[symbol] = states.get(symbol) ?? EMPTY;
+    return book;
+    // Rebuilt per revision; `key` captures the symbol set by value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, revisionNow]);
+}
+
+/**
  * Poll cadence by what the screen is for. 5s is right for a detail chart being
  * watched; on a glance screen it is indistinguishable from 20s and costs 4x the
  * requests across the whole book.
@@ -76,6 +109,9 @@ const LIVE_INTERVAL_MS: Record<Cadence, number> = {
   detail: 5_000,
   glance: 20_000,
 };
+
+/** The glance cadence, for screens that reason about their own staleness. */
+export const GLANCE_CADENCE_MS = LIVE_INTERVAL_MS.glance;
 
 /**
  * Fallback re-check for a symbol whose venue is closed and whose next bell we

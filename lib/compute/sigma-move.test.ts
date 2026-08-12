@@ -116,25 +116,63 @@ describe('sigmaMove', () => {
     expect(result).toEqual({ kind: 'warmup', returns: 29, needed: SIGMA_MOVE_WARMUP });
   });
 
-  it('scores the last completed bar when there is no live return', () => {
+  it('scores the last completed bar when there is no live quote', () => {
     const result = sigmaMove(settled);
     expect(result.kind).toBe('scored');
     if (result.kind !== 'scored') return;
     expect(result.basis).toBe('close');
+    expect(result.barIndex).toBe(settled.length - 1);
     const { fields } = computeIndicators(settled);
     expect(result.sigma).toBeCloseTo(fields.vnr[settled.length - 1]!, 12);
   });
 
-  it("scores today's in-progress return against the last bar's forecast", () => {
-    const { fields } = computeIndicators(settled);
-    const forecast = fields.vnr_sigma[settled.length - 1]!;
-    const result = sigmaMove(settled, 0.03);
-    expect(result).toEqual({ kind: 'scored', sigma: 0.03 / forecast, basis: 'live' });
+  /** A live quote from a venue that is trading, `dayReturn` as a fraction. */
+  const trading = (dayReturn: number, asOf: number) => ({
+    dayReturn,
+    sessionOpen: true,
+    asOf,
   });
 
-  it('reports a gap rather than a σ when the latest bar spans a hole', () => {
-    // Drop the second-to-last session, leaving the final bar two sessions out.
+  it("scores today's in-progress return against the last completed bar's forecast", () => {
+    const { fields } = computeIndicators(settled);
+    const last = settled[settled.length - 1];
+    const forecast = fields.vnr_sigma[settled.length - 1]!;
+    // Venue open, but the last stored bar is *yesterday's* — nothing is forming.
+    const result = sigmaMove(settled, trading(0.03, last.time + DAY));
+    expect(result).toEqual({
+      kind: 'scored',
+      sigma: 0.03 / forecast,
+      basis: 'live',
+      barIndex: settled.length - 1,
+    });
+  });
+
+  it("ignores today's forming bar — it must not be its own denominator", () => {
+    // The venue is trading and the last bar is dated today, so both the score and
+    // the forecast have to come from the session before it.
+    const { fields } = computeIndicators(settled);
+    const last = settled[settled.length - 1];
+    const result = sigmaMove(settled, trading(0.03, last.time + 3_600));
+    expect(result).toEqual({
+      kind: 'scored',
+      sigma: 0.03 / fields.vnr_sigma[settled.length - 2]!,
+      basis: 'live',
+      barIndex: settled.length - 2,
+    });
+  });
+
+  it('still scores a live return when the stored series has a hole', () => {
+    // `price / previousClose` is one session by construction, so a positional
+    // hole can't make it span sessions — the guard is about bar arithmetic.
     const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
-    expect(sigmaMove(holed, 0.03)).toEqual({ kind: 'gap', sessions: 2 });
+    const last = holed[holed.length - 1];
+    const result = sigmaMove(holed, trading(0.03, last.time + DAY));
+    expect(result.kind).toBe('scored');
+    if (result.kind === 'scored') expect(result.basis).toBe('live');
+  });
+
+  it('reports a gap when the bar-based score is the one that spans a hole', () => {
+    const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
+    expect(sigmaMove(holed)).toEqual({ kind: 'gap', sessions: 2 });
   });
 });

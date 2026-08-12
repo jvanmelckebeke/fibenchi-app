@@ -5,7 +5,8 @@ import { GroupDrawer } from '@/components/group-drawer';
 export default function DrawerLayout() {
   return (
     <Drawer drawerContent={(props) => <GroupDrawer {...props} />}>
-      <Drawer.Screen name="index" options={{ title: 'Fibenchi' }} />
+      <Drawer.Screen name="index" options={{ title: 'Pulse' }} />
+      <Drawer.Screen name="group" options={{ title: 'Fibenchi' }} />
       <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
     </Drawer>
   );

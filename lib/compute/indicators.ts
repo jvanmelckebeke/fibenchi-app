@@ -244,39 +244,65 @@ export const SIGMA_MOVE_WARMUP = INDICATOR_SPECS.find((spec) => spec.key === 'vn
  * the UI has to interpret. There is deliberately **no fallback to a provisional
  * σ from a stale forecast**: an honest gap beats a plausible lie.
  *
- * - `scored` on `close` — the last daily bar's σ-Move.
+ * - `scored` on `close` — the last *completed* daily bar's σ-Move.
  * - `scored` on `live` — today's in-progress return scored against the forecast
  *   built through the last completed session, which is how a move gets a σ
- *   before its daily bar is written. Pass `dayReturn` as a fraction
- *   (`price / previousClose - 1`) from the live quote.
+ *   before its daily bar is written.
  * - `gap` — the return spans a hole in the daily series.
  * - `warmup` — fewer than `SIGMA_MOVE_WARMUP` usable returns.
  */
 export type SigmaMove =
-  | { kind: 'scored'; sigma: number; basis: 'live' | 'close' }
+  | { kind: 'scored'; sigma: number; basis: 'live' | 'close'; barIndex: number }
   | { kind: 'gap'; sessions: number }
   | { kind: 'warmup'; returns: number; needed: number };
 
-export function sigmaMove(bars: OhlcBar[], dayReturn?: number | null): SigmaMove {
+export interface SigmaMoveLive {
+  /** Today's session return as a fraction: `price / previousClose - 1`. */
+  dayReturn: number | null;
+  /** Whether the venue is trading right now — so a bar dated today is unfinished. */
+  sessionOpen: boolean;
+  /** Epoch seconds the quote speaks for (its `marketTime`, or now). */
+  asOf: number;
+}
+
+/** Epoch seconds → whole UTC days; daily bar stamps line up with UTC dates. */
+const utcDay = (seconds: number) => Math.floor(seconds / 86_400);
+
+export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMove {
   const { fields } = computeIndicators(bars);
   const n = bars.length;
-  const usableReturns = (fields.vnr_sigma ?? []).filter((v) => v !== null).length;
+
+  // While a venue is trading, Yahoo's daily series already carries today's
+  // *forming* bar. Scoring it, or building the forecast through it, would divide
+  // today's partial move by a denominator that already contains it — so the last
+  // completed session is one bar further back.
+  const forming =
+    live?.sessionOpen === true && n > 1 && utcDay(bars[n - 1].time) === utcDay(live.asOf);
+  const completed = forming ? n - 2 : n - 1;
+
+  const usableReturns = (fields.vnr_sigma ?? [])
+    .slice(0, completed + 1)
+    .filter((v) => v !== null).length;
   if (usableReturns < SIGMA_MOVE_WARMUP) {
     return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
   }
 
-  const gapSessions = fields.vnr_gap_sessions?.[n - 1] ?? null;
-  if (gapSessions !== null) return { kind: 'gap', sessions: gapSessions };
-
-  // Live basis: the forecast on the last completed bar is the one made *for*
-  // the in-progress day, so today's return divides by it directly.
-  const forecast = fields.vnr_sigma?.[n - 1] ?? null;
-  if (dayReturn !== null && dayReturn !== undefined && forecast !== null) {
-    return { kind: 'scored', sigma: dayReturn / forecast, basis: 'live' };
+  // Live basis first: `price / previousClose` is a single-session return *by
+  // construction*, so a hole in the stored series can't make it span sessions —
+  // the positional gap guard applies to the bar-based score, not to this one.
+  // (The hole does drop one return from the forecast, which is the guard doing
+  // its job rather than a reason to report nothing.)
+  const forecast = fields.vnr_sigma?.[completed] ?? null;
+  if (live?.dayReturn != null && live.sessionOpen && forecast !== null) {
+    return { kind: 'scored', sigma: live.dayReturn / forecast, basis: 'live', barIndex: completed };
   }
 
-  const latest = fields.vnr?.[n - 1] ?? null;
-  if (latest !== null) return { kind: 'scored', sigma: latest, basis: 'close' };
+  const gapSessions = fields.vnr_gap_sessions?.[completed] ?? null;
+  if (gapSessions !== null) return { kind: 'gap', sessions: gapSessions };
+
+  const latest = fields.vnr?.[completed] ?? null;
+  if (latest !== null)
+    return { kind: 'scored', sigma: latest, basis: 'close', barIndex: completed };
   return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
 }
 
