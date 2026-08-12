@@ -1,8 +1,13 @@
 import { YAHOO_HOSTS } from './endpoints';
 
-// A desktop UA keeps Yahoo's unofficial endpoints happy.
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// A plain client UA, *not* a spoofed desktop browser one. Yahoo now answers
+// `v8/chart` with a hard 429 for the Chrome UA this used to send — reproducibly,
+// on both query1 and query2, while the same request from this IP with any
+// non-browser UA (or none) returns 200. The old comment claimed a desktop UA
+// "keeps Yahoo's unofficial endpoints happy"; the opposite is true today,
+// presumably because a browser UA arriving without cookies or a consent session
+// looks exactly like scraping.
+const USER_AGENT = 'Fibenchi-App/1.0';
 const REQUEST_TIMEOUT_MS = 10_000;
 
 // One retry, and only for *transport* failures — see `isRetryable`. Each attempt
