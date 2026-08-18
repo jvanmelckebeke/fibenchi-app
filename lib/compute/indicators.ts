@@ -36,7 +36,16 @@ const KERNELS: Record<string, Kernel> = {
     return { macd: m.macd, macd_signal: m.signal, macd_hist: m.hist };
   },
   volatility_normalized_return: ({ closes, gapSessions }, spec) => {
-    const s = volatilityNormalizedReturn(closes, spec.params.lam, gapSessions);
+    // The floor and the warmup gate are part of the kernel contract, not
+    // decoration: without them a quiet series scores its next move against a
+    // near-zero denominator, and a short one scores against a two-observation
+    // "baseline". Both are read from the spec so the backend stays the single
+    // source of truth for their values.
+    const s = volatilityNormalizedReturn(closes, spec.params.lam, gapSessions, {
+      sigmaFloorFrac: spec.params.sigma_floor_frac,
+      sigmaFloorMinObs: spec.params.sigma_floor_min_obs,
+      warmup: spec.warmup,
+    });
     return { vnr: s.vnr, vnr_sigma: s.vnrSigma, vnr_gap_sessions: s.vnrGapSessions };
   },
 };
@@ -280,9 +289,16 @@ export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMo
     live?.sessionOpen === true && n > 1 && utcDay(bars[n - 1].time) === utcDay(live.asOf);
   const completed = forming ? n - 2 : n - 1;
 
-  const usableReturns = (fields.vnr_sigma ?? [])
-    .slice(0, completed + 1)
-    .filter((v) => v !== null).length;
+  // Count the returns the kernel actually observed: one per bar from index 1,
+  // minus the gap-spanning ones it excludes from the variance. This used to
+  // count non-null `vnr_sigma` instead, which was the same number only while
+  // the kernel emitted a forecast from the very first return. It now applies
+  // the contract's warmup itself, so counting its output would demand
+  // 2 x warmup bars before anything scored.
+  let usableReturns = 0;
+  for (let i = 1; i <= completed; i++) {
+    if ((fields.vnr_gap_sessions?.[i] ?? null) === null) usableReturns++;
+  }
   if (usableReturns < SIGMA_MOVE_WARMUP) {
     return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
   }

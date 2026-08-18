@@ -88,10 +88,15 @@ export function rsi(closes: number[], period = 14): (number | null)[] {
  *   `null`;
  * - output is `null` only before the first observation.
  */
-export function ewmWithHoles(values: (number | null)[], alpha: number): (number | null)[] {
+export function ewmWithHoles(
+  values: (number | null)[],
+  alpha: number,
+  minPeriods = 0
+): (number | null)[] {
   const out: (number | null)[] = new Array(values.length).fill(null);
   let weighted: number | null = null;
   let oldWeight = 1;
+  let observed = 0;
   for (let i = 0; i < values.length; i++) {
     const x = values[i];
     if (weighted !== null) {
@@ -107,7 +112,35 @@ export function ewmWithHoles(values: (number | null)[], alpha: number): (number 
     } else if (x !== null) {
       weighted = x;
     }
-    out[i] = weighted;
+    if (x !== null) observed++;
+    // pandas `min_periods` counts *observations*, not positions: a hole ages
+    // the weights but doesn't bring the baseline any closer to trustworthy.
+    out[i] = observed >= minPeriods ? weighted : null;
+  }
+  return out;
+}
+
+/**
+ * Expanding sample standard deviation (Welford, ddof=1 — pandas' default),
+ * null until `minObs` non-null values have been seen.
+ *
+ * Expanding rather than rolling or whole-series so no future return leaks into
+ * an earlier bar's value: bar *i* only ever sees bars 0..i.
+ */
+export function expandingStd(values: (number | null)[], minObs: number): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  let n = 0;
+  let mean = 0;
+  let m2 = 0;
+  for (let i = 0; i < values.length; i++) {
+    const x = values[i];
+    if (x !== null) {
+      n++;
+      const delta = x - mean;
+      mean += delta / n;
+      m2 += delta * (x - mean);
+    }
+    out[i] = n >= minObs && n > 1 ? Math.sqrt(m2 / (n - 1)) : null;
   }
   return out;
 }
@@ -198,16 +231,58 @@ export interface SigmaMoveSeries {
  * null rather than as a fabricated single-day figure, and are also kept out of
  * the EWMA variance — squaring a √N-inflated return into it would overstate σ
  * for weeks, *understating* every σ-Move after the gap.
+ *
+ * `options` mirror the contract's `params` and `warmup`. They default to *off*
+ * so a direct call is the bare kernel; the production path wires them from the
+ * registry (see `KERNELS.volatility_normalized_return`), and a test pins that
+ * wiring so it can't silently lapse back to metadata.
  */
+export interface SigmaMoveOptions {
+  /**
+   * Floor on the forecast, as a fraction of the asset's own long-run vol.
+   *
+   * The EWMA is a pure function of *recent* returns, so a series that goes
+   * quiet — a suspended ticker, an ETC that stops repricing — decays it toward
+   * zero and the first real move divides by almost nothing. Guarding only
+   * exact zero (which floating point rarely reaches) never caught this.
+   */
+  sigmaFloorFrac?: number;
+  /** Observations before the long-run estimate is worth flooring against. */
+  sigmaFloorMinObs?: number;
+  /**
+   * Observations before any forecast is emitted. An EWMA has no hard edge, so
+   * without this it reports a "volatility" built from one or two returns and
+   * the σ-Move divided by it reads as fact.
+   */
+  warmup?: number;
+}
+
 export function volatilityNormalizedReturn(
   closes: number[],
   lam: number,
-  gapSessions?: (number | null)[]
+  gapSessions?: (number | null)[],
+  options: SigmaMoveOptions = {}
 ): SigmaMoveSeries {
+  const { sigmaFloorFrac = 0, sigmaFloorMinObs = 0, warmup = 0 } = options;
   const returns = pctChange(closes);
-  const squared = returns.map((r, i) => (r === null || isGap(gapSessions, i) ? null : r * r));
-  const variance = ewmWithHoles(squared, 1 - lam);
-  const vnrSigma = variance.map((v) => (v === null || v <= 0 ? null : Math.sqrt(v)));
+  // Gap-spanning returns are excluded from *both* the variance and the
+  // long-run floor estimate: a √N-inflated return would overstate either.
+  const usable = returns.map((r, i) => (r === null || isGap(gapSessions, i) ? null : r));
+  const squared = usable.map((r) => (r === null ? null : r * r));
+  const variance = ewmWithHoles(squared, 1 - lam, warmup);
+  const floor =
+    sigmaFloorFrac > 0
+      ? expandingStd(usable, sigmaFloorMinObs).map((sd) => (sd === null ? null : sd * sigmaFloorFrac))
+      : closes.map(() => null);
+
+  const vnrSigma = variance.map((v, i) => {
+    let sigma = v === null ? null : Math.sqrt(v);
+    const lowerBound = floor[i];
+    // A warmed-up-but-absent forecast stays absent — the floor raises a real
+    // estimate, it does not manufacture one.
+    if (sigma !== null && lowerBound !== null && lowerBound > sigma) sigma = lowerBound;
+    return sigma === null || sigma <= 0 ? null : sigma;
+  });
 
   const vnr = closes.map((_, i) => {
     const forecast = i > 0 ? vnrSigma[i - 1] : null;

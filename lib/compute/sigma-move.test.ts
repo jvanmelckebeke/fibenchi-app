@@ -1,5 +1,6 @@
 import type { OhlcBar } from '@/lib/market';
 
+import { INDICATOR_SPECS } from './generated/registry';
 import {
   SIGMA_MOVE_WARMUP,
   computeIndicators,
@@ -174,5 +175,70 @@ describe('sigmaMove', () => {
   it('reports a gap when the bar-based score is the one that spans a hole', () => {
     const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
     expect(sigmaMove(holed)).toEqual({ kind: 'gap', sessions: 2 });
+  });
+});
+
+
+// The floor and the warmup gate are backend-owned decisions the contract ships
+// (`params.sigma_floor_frac`, `params.sigma_floor_min_obs`, `warmup`). The
+// golden vectors prove the *numbers* match pandas; these prove the app is
+// actually wiring them through, which a fixture on a single synthetic series
+// can't fully pin.
+
+const VNR_SPEC = INDICATOR_SPECS.find((spec) => spec.key === 'vnr')!;
+
+describe('kernel contract wiring', () => {
+  it('carries the floor parameters the backend publishes', () => {
+    expect(VNR_SPEC.params.sigma_floor_frac).toBeGreaterThan(0);
+    expect(VNR_SPEC.params.sigma_floor_min_obs).toBeGreaterThan(0);
+    expect(VNR_SPEC.warmup).toBe(SIGMA_MOVE_WARMUP);
+  });
+
+  it('emits no forecast until the contract warmup is met', () => {
+    const short = sessions(SIGMA_MOVE_WARMUP - 5, (i) => 100 + (i % 2 === 0 ? 0 : 1));
+    const { fields } = computeIndicators(short);
+    expect(fields.vnr_sigma.every((v) => v === null)).toBe(true);
+    expect(fields.vnr.every((v) => v === null)).toBe(true);
+  });
+
+  it('emits a forecast once the baseline exists', () => {
+    const long = sessions(SIGMA_MOVE_WARMUP + 10, (i) => 100 + (i % 2 === 0 ? 0 : 1));
+    const { fields } = computeIndicators(long);
+    expect(fields.vnr_sigma[long.length - 1]).not.toBeNull();
+    expect(fields.vnr_sigma[SIGMA_MOVE_WARMUP - 2]).toBeNull();
+  });
+
+  it('floors the forecast so a series gone quiet cannot blow up the next move', () => {
+    // Normal volatility, then dead flat, then a real +3% day. Unfloored, the
+    // EWMA decays toward zero and that move divides by almost nothing.
+    // 120 flat sessions is well past where λ=0.94 decays below the floor —
+    // at ~1.2%/day the crossover is around 70, so this has real margin.
+    const closes: number[] = [];
+    for (let i = 0; i < SIGMA_MOVE_WARMUP + 20; i++) closes.push(100 + (i % 2 === 0 ? 0 : 1.2));
+    const flat = closes[closes.length - 1];
+    for (let i = 0; i < 120; i++) closes.push(flat);
+    closes.push(flat * 1.03);
+    const last = closes.length - 1;
+
+    const withFloor = computeIndicators(sessions(closes.length, (i) => closes[i])).fields.vnr[last]!;
+    // Same warmup, floor off — isolates the floor as the only difference.
+    const bare = volatilityNormalizedReturn(closes, VNR_SPEC.params.lam, undefined, {
+      warmup: VNR_SPEC.warmup,
+    }).vnr[last]!;
+
+    expect(Math.abs(bare)).toBeGreaterThan(60);
+    expect(Math.abs(withFloor)).toBeLessThan(Math.abs(bare) / 3);
+  });
+
+  it('leaves an ordinary series untouched — the floor is a guard, not a filter', () => {
+    const bars = sessions(SIGMA_MOVE_WARMUP + 40, (i) => 100 + (i % 2 === 0 ? 0 : 1.2));
+    const wired = computeIndicators(bars).fields.vnr_sigma;
+    const unfloored = volatilityNormalizedReturn(
+      bars.map((b) => b.close),
+      VNR_SPEC.params.lam,
+      undefined,
+      { warmup: VNR_SPEC.warmup }
+    ).vnrSigma;
+    expect(wired[bars.length - 1]).toBeCloseTo(unfloored[bars.length - 1]!, 12);
   });
 });

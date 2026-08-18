@@ -76,6 +76,8 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     kernel: 'volatility_normalized_return',
     params: {
       lam: 0.94,
+      sigma_floor_frac: 0.15,
+      sigma_floor_min_obs: 20,
     },
     outputFields: ['vnr'],
     decimals: 2,
