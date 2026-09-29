@@ -1,6 +1,6 @@
 import type { OhlcBar } from '@/lib/market';
 
-import fixtures from './__fixtures__/indicator.fixtures.json';
+import fixtures from '@jvanmelckebeke/fibenchi-contract/indicator.fixtures.json';
 import { buildIndicatorSnapshot, computeIndicators } from './indicators';
 
 // Golden-vector parity: the fixtures are produced by Fibenchi's pandas reference

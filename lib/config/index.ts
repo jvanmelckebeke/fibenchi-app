@@ -1,15 +1,12 @@
-import { z } from 'zod';
+import { companionConfigSchema, type CompanionConfig } from '@jvanmelckebeke/fibenchi-contract';
 
-import { companionConfigSchema } from './generated/config.schema';
+export type { CompanionConfig };
 
 /**
  * Config-contract version this app build understands. Must match Fibenchi's
- * `CONFIG_VERSION`. The generated schema also pins it via `z.literal(...)`.
+ * `CONFIG_VERSION`. The contract's schema also pins it via `z.literal(...)`.
  */
 export const SUPPORTED_CONFIG_VERSION = 1 as const;
-
-/** Decoded, validated config bundle — type inferred from the generated Zod schema (SoT). */
-export type CompanionConfig = z.infer<typeof companionConfigSchema>;
 
 /** A single group from the decoded bundle. */
 export type ConfigGroup = NonNullable<CompanionConfig['groups']>[number];
@@ -37,7 +34,7 @@ export type DecodeResult =
   | { ok: false; reason: 'invalid'; error: string };
 
 /**
- * Validate a raw config payload against the generated contract.
+ * Validate a raw config payload against Fibenchi's contract.
  *
  * Distinguishes a **version mismatch** (Fibenchi is newer than this app build →
  * the user should update the app) from a genuinely **malformed** payload, so the
