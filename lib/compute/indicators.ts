@@ -1,6 +1,11 @@
 import type { OhlcBar, Period } from '@/lib/market';
-import { INDICATOR_SPECS, type IndicatorSpec } from './generated/registry';
+import { INDICATOR_CONTRACT, type IndicatorSpec } from '@jvanmelckebeke/fibenchi-contract';
 import { macd, rsi, sessionGapDays, sma, volatilityNormalizedReturn } from './series-math';
+
+/** The contract's indicators that run on the phone; the rest are web-only. */
+export const INDICATOR_SPECS: IndicatorSpec[] = INDICATOR_CONTRACT.indicators.filter((spec) =>
+  spec.platforms.includes('app')
+);
 
 /** Per-symbol context the kernels read from (extend with highs/lows/volumes for OHLC indicators). */
 interface SeriesCtx {
@@ -17,10 +22,10 @@ interface SeriesCtx {
 type Kernel = (ctx: SeriesCtx, spec: IndicatorSpec) => Record<string, (number | null)[]>;
 
 /**
- * Hand-written numeric kernels, dispatched by the `kernel` id in the *generated*
- * registry (`generated/registry.ts`, emitted from Fibenchi's contract). The
- * registry metadata — which indicators, params, warmup, decimals — is generated
- * so it can't drift from the backend; the math lives here and is pinned to the
+ * Hand-written numeric kernels, dispatched by the `kernel` id in Fibenchi's
+ * indicator contract (`@jvanmelckebeke/fibenchi-contract`). The registry
+ * metadata — which indicators, params, warmup, decimals — comes from that
+ * package so it can't drift from the backend; the math lives here and is pinned to the
  * pandas reference by the golden test (see `indicators.test.ts`). Promoting a
  * web-only indicator to the app = one `platforms` flag upstream + a kernel here.
  *

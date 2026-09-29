@@ -1,7 +1,7 @@
 import type { OhlcBar } from '@/lib/market';
 
-import { INDICATOR_SPECS } from './generated/registry';
 import {
+  INDICATOR_SPECS,
   SIGMA_MOVE_WARMUP,
   computeIndicators,
   getMaxWarmup,
@@ -178,7 +178,6 @@ describe('sigmaMove', () => {
   });
 });
 
-
 // The floor and the warmup gate are backend-owned decisions the contract ships
 // (`params.sigma_floor_frac`, `params.sigma_floor_min_obs`, `warmup`). The
 // golden vectors prove the *numbers* match pandas; these prove the app is
@@ -220,7 +219,9 @@ describe('kernel contract wiring', () => {
     closes.push(flat * 1.03);
     const last = closes.length - 1;
 
-    const withFloor = computeIndicators(sessions(closes.length, (i) => closes[i])).fields.vnr[last]!;
+    const withFloor = computeIndicators(sessions(closes.length, (i) => closes[i])).fields.vnr[
+      last
+    ]!;
     // Same warmup, floor off — isolates the floor as the only difference.
     const bare = volatilityNormalizedReturn(closes, VNR_SPEC.params.lam, undefined, {
       warmup: VNR_SPEC.warmup,
