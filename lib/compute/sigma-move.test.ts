@@ -176,6 +176,29 @@ describe('sigmaMove', () => {
     const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
     expect(sigmaMove(holed)).toEqual({ kind: 'gap', sessions: 2 });
   });
+
+  it("scores a closed venue's holed bar from the quote for that same session", () => {
+    // Yahoo returns a null close for the day before, so the stored series jumps
+    // two sessions, but the quote's previousClose is the real one: its return
+    // is still one session.
+    const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
+    const last = holed[holed.length - 1];
+    const { fields } = computeIndicators(holed);
+    const closed = { dayReturn: -0.004, sessionOpen: false, asOf: last.time + 8 * 3_600 };
+    expect(sigmaMove(holed, closed)).toEqual({
+      kind: 'scored',
+      sigma: -0.004 / fields.vnr_sigma[holed.length - 1]!,
+      basis: 'live',
+      barIndex: holed.length - 1,
+    });
+  });
+
+  it('keeps the gap when the quote is about a different session than the holed bar', () => {
+    const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
+    const last = holed[holed.length - 1];
+    const nextDay = { dayReturn: -0.004, sessionOpen: false, asOf: last.time + DAY };
+    expect(sigmaMove(holed, nextDay)).toEqual({ kind: 'gap', sessions: 2 });
+  });
 });
 
 // The floor and the warmup gate are backend-owned decisions the contract ships

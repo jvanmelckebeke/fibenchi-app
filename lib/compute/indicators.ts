@@ -262,7 +262,9 @@ export const SIGMA_MOVE_WARMUP = INDICATOR_SPECS.find((spec) => spec.key === 'vn
  * - `scored` on `live` — today's in-progress return scored against the forecast
  *   built through the last completed session, which is how a move gets a σ
  *   before its daily bar is written.
- * - `gap` — the return spans a hole in the daily series.
+ * - `scored` on `live` for a closed venue — the latest bar spans a hole, and
+ *   the quote for that same session supplies the one-session return instead.
+ * - `gap` — the return spans a hole in the daily series and no quote covers it.
  * - `warmup` — fewer than `SIGMA_MOVE_WARMUP` usable returns.
  */
 export type SigmaMove =
@@ -319,6 +321,18 @@ export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMo
   }
 
   const gapSessions = fields.vnr_gap_sessions?.[completed] ?? null;
+  // A closed venue whose latest bar spans a hole in Yahoo's daily series (a
+  // null close on the day between) still has a clean one-session return in the
+  // quote, when the quote speaks for that same bar. Fibenchi web's resolver
+  // scores this case the same way, from the quote's change over `vnr_sigma`.
+  if (
+    gapSessions !== null &&
+    live?.dayReturn != null &&
+    forecast !== null &&
+    utcDay(bars[completed].time) === utcDay(live.asOf)
+  ) {
+    return { kind: 'scored', sigma: live.dayReturn / forecast, basis: 'live', barIndex: completed };
+  }
   if (gapSessions !== null) return { kind: 'gap', sessions: gapSessions };
 
   const latest = fields.vnr?.[completed] ?? null;
