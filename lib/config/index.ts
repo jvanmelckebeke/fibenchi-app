@@ -28,6 +28,19 @@ export function orderedGroups(config: CompanionConfig | null): ConfigGroup[] {
   );
 }
 
+/**
+ * The whole book, deduped across groups in display order. A symbol in three
+ * groups is one symbol here: σ-Move and the poll loop belong to the asset, not
+ * to the group.
+ */
+export function bookSymbols(config: CompanionConfig | null): string[] {
+  const seen = new Set<string>();
+  for (const group of orderedGroups(config)) {
+    for (const symbol of group.symbols ?? []) seen.add(symbol);
+  }
+  return [...seen];
+}
+
 export type DecodeResult =
   | { ok: true; config: CompanionConfig }
   | { ok: false; reason: 'version'; error: string }

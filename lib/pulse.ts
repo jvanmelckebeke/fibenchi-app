@@ -60,8 +60,16 @@ export interface PulseBook {
   tail: PulseAsset[];
   /** Everything with no reading, for the coverage panel. */
   unscored: PulseAsset[];
+  /** Every asset in `symbols` order, scored or not — the Board's tiles. */
+  assets: PulseAsset[];
   breadth: PulseBreadth;
   scored: number;
+  /**
+   * Assets whose daily bars are still in flight. Quotes land before bars, so a
+   * cold open has every % and few σ; without this count "12 of 88 scored" reads
+   * like 76 problems instead of 76 arrivals.
+   */
+  pending: number;
   total: number;
   /** Newest quote timestamp across the book (epoch ms), or null. */
   lastGoodAt: number | null;
@@ -217,8 +225,10 @@ export function buildPulseBook(input: PulseInput): PulseBook {
     top: ranked.slice(0, PULSE_ROWS),
     tail: ranked.slice(PULSE_ROWS),
     unscored: assets.filter((a) => a.unscored !== null),
+    assets,
     breadth,
     scored: ranked.length,
+    pending: assets.filter((a) => a.sigma === null && a.unscored === null).length,
     total: input.symbols.length,
     lastGoodAt,
     offlineFor: offlineFor(assets, lastGoodAt, input),

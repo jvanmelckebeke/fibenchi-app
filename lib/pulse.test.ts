@@ -179,6 +179,25 @@ describe('coverage', () => {
     );
     expect(book.unscored).toHaveLength(0);
   });
+
+  it('counts a symbol whose bars are in flight as pending, not as unscored', () => {
+    // The cold open: every quote has landed, one series hasn't. The badge must
+    // say "1 loading", since σ is about to fill in.
+    const book = buildPulseBook(
+      input({
+        symbols: ['DONE', 'SLOW'],
+        daily: { DONE: series(0.02) },
+        quotes: {
+          DONE: state({ quote: quote({ symbol: 'DONE', isOpen: false }) }),
+          SLOW: state({ quote: quote({ symbol: 'SLOW', isOpen: false }) }),
+        },
+      })
+    );
+    expect(book.scored).toBe(1);
+    expect(book.pending).toBe(1);
+    expect(book.unscored).toHaveLength(0);
+    expect(book.assets.map((a) => a.symbol)).toEqual(['DONE', 'SLOW']);
+  });
 });
 
 describe('staleness', () => {
