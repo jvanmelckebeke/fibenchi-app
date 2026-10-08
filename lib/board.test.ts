@@ -77,6 +77,17 @@ describe('buildBoard', () => {
     ]);
   });
 
+  it('ranks each section by the reading on show, unread last', () => {
+    const sigma = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW);
+    expect(sigma.sections[2].tiles.map((t) => t.asset.symbol)).toEqual(['NVDA', 'NEW', 'SLOW']);
+    const crowd = [asset('A', -1.5, 4), asset('B', 0.2, -3), asset('C', 2.4, 1)];
+    const section = [{ title: 'S', symbols: ['A', 'B', 'C'] }];
+    const bySigma = buildBoard(crowd, section, 'sigma', 'all', {}, NOW).sections[0];
+    const byPct = buildBoard(crowd, section, 'pct', 'all', {}, NOW).sections[0];
+    expect(bySigma.tiles.map((t) => t.asset.symbol)).toEqual(['C', 'B', 'A']);
+    expect(byPct.tiles.map((t) => t.asset.symbol)).toEqual(['A', 'C', 'B']);
+  });
+
   it('reads σ or today % by mode', () => {
     const sigma = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW).sections[0].tiles[0].value;
     const pct = buildBoard(ASSETS, SECTIONS, 'pct', 'all', {}, NOW).sections[0].tiles[0].value;
