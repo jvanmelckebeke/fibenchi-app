@@ -51,6 +51,8 @@ function asset(
   };
 }
 
+const NOW = new Date(2026, 7, 20, 15, 0).getTime();
+
 const ASSETS = [
   asset('NVDA', 2.1, 3.0, 'regular'),
   asset('ASML', -0.4, -1.0, 'closed'),
@@ -67,7 +69,7 @@ const SECTIONS = [
 
 describe('buildBoard', () => {
   it('shows a symbol in every section it belongs to and skips unknown ones', () => {
-    const board = buildBoard(ASSETS, SECTIONS, 'sigma', 'all');
+    const board = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW);
     expect(board.sections.map((s) => s.tiles.map((t) => t.asset.symbol))).toEqual([
       ['NVDA', 'ASML'],
       ['BTC-USD'],
@@ -76,25 +78,32 @@ describe('buildBoard', () => {
   });
 
   it('reads σ or today % by mode', () => {
-    const sigma = buildBoard(ASSETS, SECTIONS, 'sigma', 'all').sections[0].tiles[0].value;
-    const pct = buildBoard(ASSETS, SECTIONS, 'pct', 'all').sections[0].tiles[0].value;
+    const sigma = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW).sections[0].tiles[0].value;
+    const pct = buildBoard(ASSETS, SECTIONS, 'pct', 'all', {}, NOW).sections[0].tiles[0].value;
     expect(sigma).toBe(2.1);
     expect(pct).toBe(3.0);
   });
 
   it('filters to regular sessions without re-scaling, and drops emptied sections', () => {
-    const all = buildBoard(ASSETS, SECTIONS, 'sigma', 'all');
-    const open = buildBoard(ASSETS, SECTIONS, 'sigma', 'open');
+    const all = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW);
+    const open = buildBoard(ASSETS, SECTIONS, 'sigma', 'open', {}, NOW);
     expect(open.sections.map((s) => s.title)).toEqual(['Hotlist', 'Crypto', 'Radar']);
     expect(open.sections[0].tiles.map((t) => t.asset.symbol)).toEqual(['NVDA']);
     expect(open.span).toBe(all.span);
 
-    const closedOnly = buildBoard(ASSETS, [{ title: 'EU', symbols: ['ASML'] }], 'sigma', 'open');
+    const closedOnly = buildBoard(
+      ASSETS,
+      [{ title: 'EU', symbols: ['ASML'] }],
+      'sigma',
+      'open',
+      {},
+      NOW
+    );
     expect(closedOnly.sections).toHaveLength(0);
   });
 
   it('counts coverage over the book: open, scored, and still loading', () => {
-    expect(buildBoard(ASSETS, SECTIONS, 'sigma', 'all').coverage).toEqual({
+    expect(buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW).coverage).toEqual({
       open: 2,
       scored: 3,
       pending: 1,
@@ -102,8 +111,28 @@ describe('buildBoard', () => {
     });
   });
 
+  it('gives every tile its three window returns, null without bars', () => {
+    const day = (iso: string, close: number) => ({
+      time: Date.parse(`${iso}T12:00:00Z`) / 1000,
+      open: close,
+      high: close,
+      low: close,
+      close,
+      adjClose: null,
+      volume: null,
+    });
+    const daily = { NVDA: [day('2026-07-20', 80), day('2026-08-06', 90), day('2026-08-13', 95)] };
+    const board = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', daily, NOW);
+    const [nvda, asml] = board.sections[0].tiles;
+    // Live price 100 against the closes the windows start from.
+    expect(nvda.windows['1wk']).toBeCloseTo((100 / 95 - 1) * 100);
+    expect(nvda.windows['2wk']).toBeCloseTo((100 / 90 - 1) * 100);
+    expect(nvda.windows['1mo']).toBeCloseTo(25);
+    expect(asml.windows).toEqual({ '1wk': null, '2wk': null, '1mo': null });
+  });
+
   it('holds the canonical span while too little of the book has a reading', () => {
     // 3 of 5 scored is under the 0.9 gate, so the ramp may not tighten.
-    expect(buildBoard(ASSETS, SECTIONS, 'sigma', 'all').span).toBe(3);
+    expect(buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW).span).toBe(3);
   });
 });

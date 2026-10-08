@@ -1,8 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 
-import { BoardTile } from '@/components/board/board-tile';
+import { BoardRow } from '@/components/board/board-row';
 import { OfflineBanner } from '@/components/pulse/offline-banner';
 import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/ui/text';
@@ -29,39 +29,35 @@ const FILTERS = [
   { value: 'open', label: 'Open' },
 ] as const;
 
-const COLUMNS = 4;
-const GUTTER = 12;
 const GAP = 4;
 
 /**
- * The Board: every asset in the book as a tile coloured by its σ-Move (or
- * today's %), in group sections. The phone's version of the web overview's
- * grid, for the question the Pulse deliberately doesn't answer: "what does the
- * whole book look like?". Four columns, so 88 assets are one short scroll.
+ * The Board: every asset in the book as a card coloured by its σ-Move (or
+ * today's %), one per row in group sections, with the 1wk/2wk/1mo moves
+ * beside it. The phone's version of the web overview's grid, for the question
+ * the Pulse deliberately doesn't answer: "what does the whole book look like?".
  */
 export default function Board() {
   const { config, status, sync, needsOnboarding } = useConfig();
-  const { width } = useWindowDimensions();
   const [mode, setMode] = useState<ColorMode>('sigma');
   const [filter, setFilter] = useState<BoardFilter>('all');
   const [grouping, setGrouping] = useState<Grouping>('group');
   // A server that predates theses in the bundle sends none: no toggle then.
   const hasTheses = (config?.theses?.length ?? 0) > 0;
   const byThesis = hasTheses && grouping === 'thesis';
-  const { book } = useBook(byThesis ? 'tracked' : 'book');
+  const { book, daily, now } = useBook(byThesis ? 'tracked' : 'book');
 
   const sections = useMemo(
     () => (byThesis ? thesisSections(config) : groupSections(config)),
     [config, byThesis]
   );
   const board = useMemo(
-    () => buildBoard(book.assets, sections, mode, filter),
-    [book.assets, sections, mode, filter]
+    () => buildBoard(book.assets, sections, mode, filter, daily, now),
+    [book.assets, sections, mode, filter, daily, now]
   );
 
   if (needsOnboarding) return <Redirect href="/onboard" />;
 
-  const tileWidth = Math.floor((width - GUTTER * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
   const fresh = book.offlineFor === null;
   const { open, scored, pending, total } = board.coverage;
 
@@ -101,14 +97,13 @@ export default function Board() {
             {section.title}{' '}
             <Text className="text-xs text-muted-foreground">{section.tiles.length}</Text>
           </Text>
-          <View className="flex-row flex-wrap" style={{ gap: GAP }}>
+          <View style={{ gap: GAP }}>
             {section.tiles.map((tile) => (
-              <BoardTile
+              <BoardRow
                 key={tile.asset.symbol}
                 tile={tile}
                 mode={mode}
                 span={board.span}
-                width={tileWidth}
                 fresh={fresh}
               />
             ))}
