@@ -1,15 +1,29 @@
 import { useRouter } from 'expo-router';
+import {
+  ArrowRightFromLine,
+  ArrowRightToLine,
+  Moon,
+  Sun,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { rampColor, type ColorMode } from '@/lib/board-scale';
 import type { BoardTile as Tile } from '@/lib/board';
 import { signedPercent, trendColor } from '@/lib/format';
+import type { MarketState } from '@/lib/market';
 import { MOVER_WINDOWS } from '@/lib/movers';
 import { formatSigma } from '@/lib/sigma-ramp';
 import { useTheme } from '@/lib/theme';
 
-import { PHASE_ICON } from './board-tile';
+/** The web board's phase glyphs, so a tile reads the same on both. */
+const PHASE_ICON: Record<MarketState, LucideIcon> = {
+  regular: Sun,
+  pre: ArrowRightToLine,
+  post: ArrowRightFromLine,
+  closed: Moon,
+};
 
 /** The web tile's bar fills (Tailwind emerald-300 / rose-300) and its 12% stub. */
 const BAR_UP = '#6ee7b7';

@@ -25,8 +25,8 @@ const FILTERS = [
 const GAP = 4;
 
 /**
- * The Board: every asset in the book as a tile coloured by its σ-Move (or
- * today's %), in group sections, one card per row with the 1wk/2wk/1mo moves
+ * The Board: every asset in the book as a card coloured by its σ-Move (or
+ * today's %), one per row in group sections, with the 1wk/2wk/1mo moves
  * beside it. The phone's version of the web overview's grid, for the question
  * the Pulse deliberately doesn't answer: "what does the whole book look like?".
  */
