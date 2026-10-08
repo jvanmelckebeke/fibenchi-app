@@ -40,7 +40,12 @@ Wait for all of them. Each writes `$RUN/answers/<name>.md`.
 ## 3. Grade
 
 One more `general-purpose` agent, model opus, same one-line prompt pointing
-at `$RUN/prompts/grader.md`. It writes `$RUN/report.md`.
+at `$RUN/prompts/grader.md`. Its reply is the report. Save it to
+`$RUN/report.md`.
+
+Before passing on a finding that says a screen shows a wrong number, check
+that number in `$RUN/<label>-text/` against `truth-<label>.json` yourself. The
+truth is a reconstruction too, and a bug in it reads as a screen error.
 
 ## 4. Report
 

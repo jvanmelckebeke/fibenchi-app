@@ -45,8 +45,16 @@ def resolve_sigma(quote: dict | None, snap: dict | None) -> tuple[float | None, 
     return None, "withheld"
 
 
-def window_moves(prices: list[dict]) -> dict[str, float | None]:
+def window_moves(prices: list[dict], quote: dict | None) -> dict[str, float | None]:
+    """% move to the live price from the last close at least 7/14/30 days before it.
+
+    fibenchi stores no bar for a session still trading, so the quote stands in
+    for today's close; without it the windows would end yesterday.
+    """
     closes = [(date.fromisoformat(p["date"][:10]), p["close"]) for p in prices if p.get("close") is not None]
+    if quote and quote.get("price") is not None and quote.get("session_date"):
+        today = date.fromisoformat(quote["session_date"])
+        closes = [c for c in closes if c[0] < today] + [(today, quote["price"])]
     if not closes:
         return {}
     last_day, last = closes[-1]
@@ -98,7 +106,7 @@ def main() -> None:
             "sigma_source": source,
             "rsi": ((snap or {}).get("values") or {}).get("rsi"),
             "rvol": ((snap or {}).get("values") or {}).get("rvol"),
-            **window_moves(prices.get(s) or []),
+            **window_moves(prices.get(s) or [], q),
         })
 
     truth = {

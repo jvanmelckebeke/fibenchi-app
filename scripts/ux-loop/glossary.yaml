@@ -142,8 +142,8 @@ ui:
   Colours: Green is up, red is down. The stronger the colour, the larger the σ. Grey is close to zero.
   "Dot next to a ticker": Filled and pulsing means that asset's exchange is in its regular session and the data is fresh. Hollow means the exchange is closed, or the app's data is stale.
   "closed 17:30": The asset's exchange has closed for the day at that local time; the price and % are that session's close.
-  "Row of small coloured bars": Every further asset, one bar each, coloured by its σ and ordered from largest |σ| down. "N more ›" opens the full list.
+  "Row of small coloured bars": The next assets after the five cards, one bar each, coloured by σ and ordered from largest |σ| down, as many as fit. "N more ›" counts the ones left over and opens the full list.
   "N of M scored": How many tracked assets have a σ right now. An asset without enough price history, or with a gap in its data, can't be scored.
   "Movers 1wk / 2wk / 1mo": The biggest gainers and losers over the past week, two weeks or month.
-  "Board σ-Move / % today": Switches what the Board ranks and colours by.
+  "Board σ-Move / % today": Switches what the Board colours by.
   "Board All / Open": All tracked assets, or only those whose exchange is trading now.

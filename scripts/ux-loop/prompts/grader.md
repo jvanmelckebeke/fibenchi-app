@@ -38,7 +38,7 @@ Then grade each tester on these, 0 to 2 points each, 20 total:
 9. Next checks: are they the checks the data actually calls for?
 10. Self-awareness: does their stated confidence match how right they were?
 
-Write `{report}` with:
+Your report, as your final reply, has:
 
 - The reference picture.
 - A table: tester, build, variant, score per criterion, total.
@@ -52,5 +52,6 @@ Write `{report}` with:
   how much. Mark whether a finding is a screen error or a reading problem.
   Skip findings that only one tester hit unless the error was material.
 
-Finish by replying with the path to the report and the total score per tester,
-nothing else.
+Start the reply with the total score per tester, one per line, then the
+report as markdown. Subagents can't write report files, so the parent saves it
+to `{report}`.
