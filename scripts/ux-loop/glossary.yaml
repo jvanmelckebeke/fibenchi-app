@@ -1,0 +1,149 @@
+# What a tester gets besides the screenshots. `owner` is what the app's owner
+# knows without looking anything up; `ui` explains the app's own symbols and is
+# only handed to the "explained" variant, because whether the screens work
+# without it is part of the test. build_brief.py fails when a tracked ticker is
+# missing from `tickers`.
+
+owner:
+  context: >-
+    Fibenchi is the owner's self-hosted watchlist of stocks, ETFs, indexes,
+    commodities and crypto. The phone app shows the same watchlist. The owner
+    is a retail investor based in Belgium, so EUR is the home currency and the
+    European session (Xetra, Euronext, Borsa Italiana, LSE) is the main one.
+
+  groups:
+    Watchlist: Names the owner is considering or already holds, the general list.
+    hotlist: The handful of names the owner is most actively watching this week.
+    Crypto: Bitcoin, Ether and Solana against the US dollar.
+    Sectors: >-
+      One ETF per sector. The XDW*/XWTS ones are global (MSCI World) sector
+      ETFs; ESIH, ESIN, SPYU and D5BK are European sector ETFs. Read together
+      they show sector rotation.
+    Thematic: Theme ETFs (batteries, drones, EVs, Korea, water, smart grid, space, nuclear, AI robotics, quantum, clean energy, semiconductors, uranium, cybersecurity, European defence).
+    Indexes: Broad equity indexes, bond yields, the US dollar and USD/JPY. The market backdrop.
+    Radar: Single stocks on the radar, not owned.
+    Commodity ETCs: Exchange-traded commodities (soft commodities, copper, gold, natural gas).
+    Doran: Two European car makers (BMW, Stellantis), a small list named after a person.
+    El Nino: A trade idea on the El Niño weather pattern (sugar, a Florida home insurer, salmon farming).
+    Claude Watchitems: Names an AI assistant flagged for the owner to watch.
+
+  abbreviations:
+    ETF: Exchange-traded fund.
+    ETC: Exchange-traded commodity, a listed note tracking one commodity.
+    UCITS: The EU fund regime; most European-listed ETFs carry it.
+    "Ticker suffix": >-
+      .DE Xetra (Germany), .MI Borsa Italiana, .L London, .PA Euronext Paris,
+      .AS Euronext Amsterdam, .OL Oslo, .CO Copenhagen, .HK Hong Kong,
+      .KS Korea. No suffix means a US listing.
+    "^ prefix": An index, not something you can buy.
+    "-USD": A crypto pair priced in US dollars, trades 24/7.
+    "=X": A currency pair.
+    "=F": A futures contract.
+    "^TNX, ^FVX, ^TYX": US Treasury yields (10, 5 and 30 years), quoted in percent.
+    DX-Y.NYB: The US Dollar Index (DXY), the dollar against a basket of major currencies.
+    RSI: Relative Strength Index, 0 to 100. Above 70 is commonly read as overbought, below 30 as oversold.
+
+  tickers:
+    HRTG: Heritage Insurance, US property insurer with heavy Florida exposure
+    OKLO: Oklo, US small-modular nuclear reactor developer
+    PAIW.DE: WisdomTree Physical AI, Humanoids and Drones ETF
+    PRY.MI: Prysmian, Italian power and data cable maker
+    TTWO: Take-Two Interactive, US video game publisher (GTA)
+    WCBR.MI: WisdomTree Cybersecurity ETF
+    XGDU.DE: Xtrackers physical gold ETC
+    BTC-USD: Bitcoin
+    ETH-USD: Ether
+    SOL-USD: Solana
+    D5BK.DE: Xtrackers FTSE Developed Europe Real Estate ETF
+    ESIH.DE: iShares MSCI Europe Health Care Sector ETF
+    ESIN.DE: iShares MSCI Europe Industrials Sector ETF
+    SPYU.DE: SPDR MSCI Europe Utilities ETF
+    XDW0.DE: Xtrackers MSCI World Energy ETF
+    XDWC.DE: Xtrackers MSCI World Consumer Discretionary ETF
+    XDWF.DE: Xtrackers MSCI World Financials ETF
+    XDWM.DE: Xtrackers MSCI World Materials ETF
+    XDWS.DE: Xtrackers MSCI World Consumer Staples ETF
+    XDWT.DE: Xtrackers MSCI World Information Technology ETF
+    XWTS.DE: Xtrackers MSCI World Communication Services ETF
+    BATT.L: L&G Battery Value-Chain ETF
+    DRON.DE: HANetf Drone ETF
+    ECAR.MI: iShares Electric Vehicles and Driving Technology ETF
+    FLXK.DE: Franklin FTSE Korea ETF (South Korean equities)
+    GLUG.L: L&G Clean Water ETF
+    GRDU.L: First Trust Clean Edge Smart Grid Infrastructure ETF
+    JEDI.DE: VanEck Space Innovators ETF
+    NCLR.PA: WisdomTree Uranium and Nuclear Energy ETF
+    QUTM.DE: VanEck Quantum Computing ETF
+    RENW.L: L&G Clean Energy ETF
+    SEC0.DE: iShares MSCI Global Semiconductors ETF
+    URNU.MI: Global X Uranium ETF
+    WDEF.L: WisdomTree Europe Defence ETF
+    DX-Y.NYB: US Dollar Index
+    EMIM.AS: iShares Core MSCI Emerging Markets IMI ETF
+    IWDA.AS: iShares Core MSCI World ETF (developed-market equities)
+    JPY=X: US dollar against Japanese yen
+    ^FVX: US 5-year Treasury yield
+    ^GSPC: S&P 500
+    ^HSI: Hang Seng (Hong Kong)
+    ^KS11: KOSPI (South Korea)
+    ^N225: Nikkei 225 (Japan)
+    ^STOXX50E: Euro Stoxx 50
+    ^TNX: US 10-year Treasury yield
+    ^TWII: Taiwan Weighted Index (TAIEX)
+    ^TYX: US 30-year Treasury yield
+    0100.HK: MiniMax, Chinese AI model developer
+    2513.HK: Knowledge Atlas (Zhipu AI), Chinese AI model developer
+    2706.HK: Haizhi Technology, Chinese enterprise AI and data software
+    AER: AerCap, aircraft leasing
+    AGCO: AGCO, farm machinery (Fendt, Massey Ferguson)
+    AVEX: AEVEX, US defence drones and aerospace
+    CBRS: Cerebras Systems, AI chip maker
+    CDA.PA: Compagnie des Alpes, French ski resorts and leisure parks
+    HAS: Hasbro, toys and games
+    IFX.DE: Infineon, German semiconductor maker
+    OVH.PA: OVHcloud, French cloud provider
+    P911.DE: Porsche AG, the car maker
+    RKLB: Rocket Lab, small-launch and space systems
+    SMTC: Semtech, analog and data-centre connectivity chips
+    SPCX: SpaceX, rockets and Starlink
+    STNG: Scorpio Tankers, refined-product tanker shipping
+    COCO.MI: WisdomTree Cocoa ETC
+    COFF.MI: WisdomTree Coffee ETC
+    COPA.MI: WisdomTree Copper ETC
+    EGAS.L: Listed under commodities; the data feed names it "FTSE EPRA/NAREIT", which may be a feed error
+    SUGA.MI: WisdomTree Sugar ETC
+    WEAT.MI: WisdomTree Wheat ETC
+    BMW.DE: BMW
+    STLAP.PA: Stellantis (Peugeot, Fiat, Jeep)
+    CANE: Teucrium Sugar Fund, US-listed sugar futures fund
+    MOWI.OL: Mowi, Norwegian salmon farmer
+    OJ=F: Orange juice futures (ICE FCOJ-A)
+    TOM.OL: Tomra, Norwegian recycling and sorting machines
+    001440.KS: Taihan Cable and Solution, Korean power cables
+    229640.KS: LS Eco Energy, Korean cables and rare-earth materials
+    COPX.MI: Global X Copper Miners ETF
+    IBM: IBM
+    KOG.OL: Kongsberg Gruppen, Norwegian defence and maritime technology
+    MNST: Monster Beverage
+    MT.AS: ArcelorMittal, steel
+    NEX.PA: Nexans, French power cables
+    NKT.CO: NKT, Danish power cables
+    PL: Planet Labs, Earth-imaging satellites
+    RIVN: Rivian, US electric vehicles
+    RR.L: Rolls-Royce, aero engines and power systems
+    VVMX.DE: VanEck Rare Earth and Strategic Metals ETF
+
+ui:
+  "σ (sigma), σ-Move": >-
+    Today's move divided by that asset's own typical daily move (an
+    exponentially weighted volatility). ±1σ is an ordinary day for that
+    asset, ±2σ or more is a genuine surprise, whatever the headline %. In the
+    owner's desktop app this column is called "vnr" (volatility-normalised return).
+  Colours: Green is up, red is down. The stronger the colour, the larger the σ. Grey is close to zero.
+  "Dot next to a ticker": Filled and pulsing means that asset's exchange is in its regular session and the data is fresh. Hollow means the exchange is closed, or the app's data is stale.
+  "closed 17:30": The asset's exchange has closed for the day at that local time; the price and % are that session's close.
+  "Row of small coloured bars": Every further asset, one bar each, coloured by its σ and ordered from largest |σ| down. "N more ›" opens the full list.
+  "N of M scored": How many tracked assets have a σ right now. An asset without enough price history, or with a gap in its data, can't be scored.
+  "Movers 1wk / 2wk / 1mo": The biggest gainers and losers over the past week, two weeks or month.
+  "Board σ-Move / % today": Switches what the Board ranks and colours by.
+  "Board All / Open": All tracked assets, or only those whose exchange is trading now.
