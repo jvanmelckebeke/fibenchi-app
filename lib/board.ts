@@ -6,7 +6,8 @@ import type { PulseAsset } from '@/lib/pulse';
 // The Board: every asset as a coloured tile, in sections. This is the phone's
 // version of the web overview's tile grid, so its rules are the web's: one
 // colour scale over the whole book, a symbol shows in every section it belongs
-// to, and the Open filter hides tiles without re-scaling the ones left.
+// to, and the Open filter hides tiles without re-scaling the ones left. Within
+// a section, tiles rank by the reading on show.
 
 export type BoardFilter = 'all' | 'open';
 
@@ -50,6 +51,19 @@ export interface BoardView {
 /** Regular session only, as on the web board: pre and post count as not open. */
 export const isOpen = (asset: PulseAsset) => asset.quote?.marketState === 'regular';
 
+/**
+ * Strongest up first, strongest down last, in whichever reading the mode shows,
+ * so a section reads as a ranking. Tiles with no reading go to the end.
+ */
+function byReading(a: BoardTile, b: BoardTile): number {
+  if (a.value === null || b.value === null) {
+    if (a.value !== b.value) return a.value === null ? 1 : -1;
+  } else if (a.value !== b.value) {
+    return b.value - a.value;
+  }
+  return a.asset.symbol.localeCompare(b.asset.symbol);
+}
+
 const reading = (asset: PulseAsset, mode: ColorMode) =>
   mode === 'sigma' ? asset.score : asset.changePct;
 
@@ -77,7 +91,8 @@ export function buildBoard(
           asset,
           value: reading(asset, mode),
           windows: windowReturns(daily[asset.symbol], asset.quote?.price ?? null, now),
-        })),
+        }))
+        .sort(byReading),
     }))
     .filter((section) => section.tiles.length > 0);
 

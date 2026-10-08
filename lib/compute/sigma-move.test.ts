@@ -130,6 +130,7 @@ describe('sigmaMove', () => {
   /** A live quote from a venue that is trading, `dayReturn` as a fraction. */
   const trading = (dayReturn: number, asOf: number) => ({
     dayReturn,
+    price: null,
     sessionOpen: true,
     asOf,
   });
@@ -184,7 +185,12 @@ describe('sigmaMove', () => {
     const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
     const last = holed[holed.length - 1];
     const { fields } = computeIndicators(holed);
-    const closed = { dayReturn: -0.004, sessionOpen: false, asOf: last.time + 8 * 3_600 };
+    const closed = {
+      dayReturn: -0.004,
+      price: null,
+      sessionOpen: false,
+      asOf: last.time + 8 * 3_600,
+    };
     expect(sigmaMove(holed, closed)).toEqual({
       kind: 'scored',
       sigma: -0.004 / fields.vnr_sigma[holed.length - 1]!,
@@ -196,8 +202,51 @@ describe('sigmaMove', () => {
   it('keeps the gap when the quote is about a different session than the holed bar', () => {
     const holed = [...settled.slice(0, -2), settled[settled.length - 1]];
     const last = holed[holed.length - 1];
-    const nextDay = { dayReturn: -0.004, sessionOpen: false, asOf: last.time + DAY };
+    const nextDay = { dayReturn: -0.004, price: null, sessionOpen: false, asOf: last.time + DAY };
     expect(sigmaMove(holed, nextDay)).toEqual({ kind: 'gap', sessions: 2 });
+  });
+
+  /** The next weekday session after a bar, as epoch seconds. */
+  const nextSession = (time: number, sessionsAhead = 1) => {
+    let t = time;
+    for (let n = 0; n < sessionsAhead;) {
+      t += DAY;
+      const weekday = new Date(t * 1000).getUTCDay();
+      if (weekday !== 0 && weekday !== 6) n++;
+    }
+    return t;
+  };
+
+  it("scores a closed venue's quote one session ahead of the bars against the last close", () => {
+    // 0100.HK after the close: the quote has today, the daily series stops at
+    // yesterday. The baseline is the stored close, not the quote's own
+    // previousClose, which Yahoo serves stale on some indices.
+    const last = settled[settled.length - 1];
+    const { fields } = computeIndicators(settled);
+    const quote = {
+      dayReturn: -0.05,
+      price: last.close * 0.98,
+      sessionOpen: false,
+      asOf: nextSession(last.time) + 6 * 3_600,
+    };
+    const result = sigmaMove(settled, quote);
+    expect(result.kind).toBe('scored');
+    if (result.kind !== 'scored') return;
+    expect(result.basis).toBe('behind');
+    expect(result.barIndex).toBe(settled.length - 1);
+    expect(result.sigma).toBeCloseTo(-0.02 / fields.vnr_sigma[settled.length - 1]!, 10);
+  });
+
+  it('does not score a quote two sessions ahead: that return would span both', () => {
+    const last = settled[settled.length - 1];
+    const quote = {
+      dayReturn: -0.05,
+      price: last.close * 0.98,
+      sessionOpen: false,
+      asOf: nextSession(last.time, 2) + 6 * 3_600,
+    };
+    const result = sigmaMove(settled, quote);
+    expect(result.kind === 'scored' && result.basis).toBe('close');
   });
 });
 

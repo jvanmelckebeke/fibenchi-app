@@ -264,17 +264,22 @@ export const SIGMA_MOVE_WARMUP = INDICATOR_SPECS.find((spec) => spec.key === 'vn
  *   before its daily bar is written.
  * - `scored` on `live` for a closed venue — the latest bar spans a hole, and
  *   the quote for that same session supplies the one-session return instead.
+ * - `scored` on `behind` — a closed venue whose quote is one session ahead of
+ *   the daily series (Yahoo writes the bar late, or leaves its close null): the
+ *   quote's price against the last stored close is that session's return.
  * - `gap` — the return spans a hole in the daily series and no quote covers it.
  * - `warmup` — fewer than `SIGMA_MOVE_WARMUP` usable returns.
  */
 export type SigmaMove =
-  | { kind: 'scored'; sigma: number; basis: 'live' | 'close'; barIndex: number }
+  | { kind: 'scored'; sigma: number; basis: 'live' | 'close' | 'behind'; barIndex: number }
   | { kind: 'gap'; sessions: number }
   | { kind: 'warmup'; returns: number; needed: number };
 
 export interface SigmaMoveLive {
   /** Today's session return as a fraction: `price / previousClose - 1`. */
   dayReturn: number | null;
+  /** The quote's last price, for scoring against a stored close. */
+  price: number | null;
   /** Whether the venue is trading right now — so a bar dated today is unfinished. */
   sessionOpen: boolean;
   /** Epoch seconds the quote speaks for (its `marketTime`, or now). */
@@ -283,6 +288,17 @@ export interface SigmaMoveLive {
 
 /** Epoch seconds → whole UTC days; daily bar stamps line up with UTC dates. */
 const utcDay = (seconds: number) => Math.floor(seconds / 86_400);
+
+/** Weekday sessions after day `from` up to and including day `to` (UTC days). */
+function weekdaysBetween(from: number, to: number): number {
+  if (to - from > 14) return Infinity;
+  let count = 0;
+  for (let day = from + 1; day <= to; day++) {
+    const weekday = (day + 4) % 7; // 1970-01-01 was a Thursday; 0 is Sunday
+    if (weekday !== 0 && weekday !== 6) count++;
+  }
+  return count;
+}
 
 export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMove {
   const { fields } = computeIndicators(bars);
@@ -318,6 +334,23 @@ export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMo
   const forecast = fields.vnr_sigma?.[completed] ?? null;
   if (live?.dayReturn != null && live.sessionOpen && forecast !== null) {
     return { kind: 'scored', sigma: live.dayReturn / forecast, basis: 'live', barIndex: completed };
+  }
+
+  // A closed venue whose quote is one session ahead of the stored bars. The
+  // baseline is the stored close, not `dayReturn`'s previousClose, which Yahoo
+  // serves a session stale on some indices (^HSI, ^TWII). Fibenchi web scores a
+  // feed that is behind from the quote the same way.
+  const last = bars[completed];
+  if (
+    live &&
+    !live.sessionOpen &&
+    live.price !== null &&
+    forecast !== null &&
+    last.close > 0 &&
+    weekdaysBetween(utcDay(last.time), utcDay(live.asOf)) === 1
+  ) {
+    const ret = live.price / last.close - 1;
+    return { kind: 'scored', sigma: ret / forecast, basis: 'behind', barIndex: completed };
   }
 
   const gapSessions = fields.vnr_gap_sessions?.[completed] ?? null;
