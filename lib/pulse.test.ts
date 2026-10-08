@@ -264,6 +264,44 @@ describe('stamps', () => {
     expect(book.top[0].stamp).toMatch(/^closed \d\d:\d\d$/);
   });
 
+  it("shows a closed venue's finished session when the bars are a session behind", () => {
+    // 0100.HK after the close: today's quote, no bar for today yet. The row must
+    // show today's move against yesterday's stored close, stamped as today's
+    // close, not yesterday's bar.
+    const now = Date.UTC(2026, 9, 8, 19, 0); // a Thursday evening
+    const closedAt = Math.floor(now / 1000) - 10 * 3_600;
+    const bars = endingToday(series(0.01), now - DAY * 1000); // last bar Wednesday
+    const lastClose = bars[bars.length - 1].close;
+    const book = buildPulseBook(
+      input({
+        symbols: ['A'],
+        now,
+        daily: { A: bars },
+        quotes: {
+          A: state({
+            quote: quote({
+              symbol: 'A',
+              isOpen: false,
+              marketState: 'closed',
+              price: lastClose * 0.9,
+              // A stale previousClose (as Yahoo serves for ^HSI) must not leak in.
+              previousClose: lastClose * 1.2,
+              changePercent: -25,
+              marketTime: closedAt,
+              regularWindow: { start: closedAt - 28_800, end: closedAt },
+            }),
+          }),
+        },
+      })
+    );
+    const row = book.assets[0];
+    expect(row.sigma?.kind === 'scored' && row.sigma.basis).toBe('behind');
+    expect(row.changePct).toBeCloseTo(-10);
+    expect(row.price).toBeCloseTo(lastClose * 0.9);
+    expect(row.score!).toBeLessThan(0);
+    expect(row.stamp).toMatch(/^closed \d\d:\d\d$/);
+  });
+
   it("stamps an older session as yesterday's close", () => {
     const now = Date.now();
     const book = buildPulseBook(
