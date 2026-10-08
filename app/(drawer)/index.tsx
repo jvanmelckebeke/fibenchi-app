@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { BreadthHeader } from '@/components/pulse/breadth-header';
+import { IndexCard } from '@/components/pulse/index-card';
 import { MoversCard } from '@/components/pulse/movers-card';
 import { OfflineBanner } from '@/components/pulse/offline-banner';
 import { SigmaRow } from '@/components/pulse/sigma-row';
@@ -22,7 +23,8 @@ import { useBook } from '@/stores/book';
  * question, and the Board's (one tap on the tail strip). So the top of this
  * screen is the five most extreme σ-moves across the whole book under a
  * breadth headline: no threshold, no grouping. Below the fold sits the slow
- * view, Movers over a week to a month, which costs no fetches of its own.
+ * view: Fibenchi's portfolio index over a year, then Movers over a week to a
+ * month, which costs no fetches of its own.
  *
  * The layout *is* the request policy (spec principle 6): five rows pull a minute
  * series for their sparkline, the other ~39 assets are one coloured bar each in
@@ -95,6 +97,8 @@ export default function Pulse() {
       )}
 
       <TailStrip assets={book.tail} dim={!fresh} onPress={() => router.navigate('/board')} />
+
+      <IndexCard />
 
       <MoversCard assets={book.assets} daily={daily} now={now} />
     </ScrollView>
