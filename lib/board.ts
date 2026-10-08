@@ -1,4 +1,6 @@
 import { boardSpan, type ColorMode } from '@/lib/board-scale';
+import type { OhlcBar } from '@/lib/market';
+import { windowReturns, type WindowReturns } from '@/lib/movers';
 import type { PulseAsset } from '@/lib/pulse';
 
 // The Board: every asset as a coloured tile, in sections. This is the phone's
@@ -17,6 +19,8 @@ export interface BoardTile {
   asset: PulseAsset;
   /** The reading in the current mode (σ or today's %), or null. */
   value: number | null;
+  /** % over 1wk / 2wk / 1mo, as the web tile's bar strip. */
+  windows: WindowReturns;
 }
 
 export interface BoardSection {
@@ -50,7 +54,9 @@ export function buildBoard(
   assets: PulseAsset[],
   sections: BoardSectionInput[],
   mode: ColorMode,
-  filter: BoardFilter
+  filter: BoardFilter,
+  daily: Record<string, OhlcBar[] | undefined>,
+  now: number
 ): BoardView {
   const bySymbol = new Map(assets.map((asset) => [asset.symbol, asset]));
 
@@ -63,7 +69,11 @@ export function buildBoard(
         .map((symbol) => bySymbol.get(symbol))
         .filter((asset): asset is PulseAsset => asset !== undefined)
         .filter((asset) => filter === 'all' || isOpen(asset))
-        .map((asset) => ({ asset, value: reading(asset, mode) })),
+        .map((asset) => ({
+          asset,
+          value: reading(asset, mode),
+          windows: windowReturns(daily[asset.symbol], asset.quote?.price ?? null, now),
+        })),
     }))
     .filter((section) => section.tiles.length > 0);
 

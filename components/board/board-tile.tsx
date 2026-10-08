@@ -17,7 +17,7 @@ import { formatSigma } from '@/lib/sigma-ramp';
 import { useTheme } from '@/lib/theme';
 
 /** The web board's phase glyphs, so a tile reads the same on both. */
-const PHASE_ICON: Record<MarketState, LucideIcon> = {
+export const PHASE_ICON: Record<MarketState, LucideIcon> = {
   regular: Sun,
   pre: ArrowRightToLine,
   post: ArrowRightFromLine,
