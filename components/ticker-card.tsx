@@ -19,7 +19,6 @@ import { useAsync } from '@/lib/use-async';
 import { cn } from '@/lib/utils';
 import { useQuote } from '@/stores/quotes';
 
-import { FlashOnChange } from './flash-on-change';
 import { MacdChart } from './macd-chart';
 import { RsiChart } from './rsi-chart';
 import { Sparkline } from './sparkline';
@@ -108,18 +107,22 @@ export function TickerCard({ symbol, name }: TickerCardProps) {
 
             <Sparkline data={spark} color={sparkColor} />
 
-            <FlashOnChange value={quote?.price} radius={8} style={{ minWidth: 84 }}>
-              <View className="items-end px-1 py-0.5">
-                <Text className="text-base font-semibold text-foreground">
-                  {quote ? formatPrice(quote.price, { symbol, currency: quote.currency }) : '—'}
+            <View className="items-end px-1 py-0.5" style={{ minWidth: 84 }}>
+              <Text className="text-base font-semibold text-foreground">
+                {quote
+                  ? formatPrice(quote.price, {
+                      symbol,
+                      currency: quote.currency,
+                      index: quote.isIndex,
+                    })
+                  : '—'}
+              </Text>
+              {changePct != null && (
+                <Text className="text-sm" style={{ color: priceColor }}>
+                  {signedPercent(changePct)}
                 </Text>
-                {changePct != null && (
-                  <Text className="text-sm" style={{ color: priceColor }}>
-                    {signedPercent(changePct)}
-                  </Text>
-                )}
-              </View>
-            </FlashOnChange>
+              )}
+            </View>
 
             <View className="-ml-2 h-3 w-[3px] rounded-full bg-muted-foreground opacity-20" />
           </CardContent>

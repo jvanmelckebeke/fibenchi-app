@@ -96,11 +96,13 @@ export interface PriceFormat {
   symbol: string;
   /** Resolved ISO 4217 code; undefined while the quote is still loading → bare number. */
   currency?: string;
+  /** Yahoo's instrumentType is INDEX, which also covers indices without a `^` (DX-Y.NYB). */
+  index?: boolean;
 }
 
-/** Indices (Yahoo prefixes them with `^`) are point values, not currency amounts. */
-function isIndex(symbol: string): boolean {
-  return symbol.startsWith('^');
+/** Indices are point values, not currency amounts. */
+function isIndex(fmt: PriceFormat): boolean {
+  return fmt.index === true || fmt.symbol.startsWith('^');
 }
 
 /** Group thousands with commas, e.g. "1234567.8" → "1,234,567.8". */
@@ -126,7 +128,7 @@ export function currencySymbol(currency: string): string {
  * the quote — and thus the currency — loads, they fall back to a bare number.
  */
 export function formatPrice(value: number, fmt: PriceFormat): string {
-  if (isIndex(fmt.symbol)) {
+  if (isIndex(fmt)) {
     const body = groupThousands(value.toFixed(2));
     return YIELD_INDICES.has(fmt.symbol.toUpperCase()) ? `${body}%` : body;
   }
@@ -141,7 +143,7 @@ export function formatPrice(value: number, fmt: PriceFormat): string {
  */
 export function formatCompactPrice(value: number, fmt: PriceFormat): string {
   const abs = Math.abs(value);
-  if (isIndex(fmt.symbol) || abs < 1e3) return formatPrice(value, fmt);
+  if (isIndex(fmt) || abs < 1e3) return formatPrice(value, fmt);
   const sym = fmt.currency ? currencySymbol(fmt.currency) : '';
   const [divisor, suffix] = abs >= 1e9 ? [1e9, 'B'] : abs >= 1e6 ? [1e6, 'M'] : [1e3, 'K'];
   let scaled = (value / divisor).toFixed(1);

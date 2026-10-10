@@ -1,29 +1,14 @@
 import { useRouter } from 'expo-router';
-import {
-  ArrowRightFromLine,
-  ArrowRightToLine,
-  Moon,
-  Sun,
-  type LucideIcon,
-} from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
+import { PhaseIcon } from '@/components/phase-icon';
 import { Text } from '@/components/ui/text';
 import { rampColor, type ColorMode } from '@/lib/board-scale';
 import type { BoardTile as Tile } from '@/lib/board';
 import { signedPercent, trendColor } from '@/lib/format';
-import type { MarketState } from '@/lib/market';
 import { MOVER_WINDOWS } from '@/lib/movers';
 import { formatSigma } from '@/lib/sigma-ramp';
 import { useTheme } from '@/lib/theme';
-
-/** The web board's phase glyphs, so a tile reads the same on both. */
-const PHASE_ICON: Record<MarketState, LucideIcon> = {
-  regular: Sun,
-  pre: ArrowRightToLine,
-  post: ArrowRightFromLine,
-  closed: Moon,
-};
 
 /** The web tile's bar fills (Tailwind emerald-300 / rose-300) and its 12% stub. */
 const BAR_UP = '#6ee7b7';
@@ -50,7 +35,6 @@ export function BoardRow({ tile, mode, span, fresh }: BoardRowProps) {
   const ramp = value !== null ? rampColor(value, span) : null;
   const pending = asset.sigma === null && asset.unscored === null;
   const ink = ramp?.ink ?? theme.foreground;
-  const Phase = asset.quote ? PHASE_ICON[asset.quote.marketState] : null;
   const reading =
     value === null
       ? mode === 'pct'
@@ -81,7 +65,7 @@ export function BoardRow({ tile, mode, span, fresh }: BoardRowProps) {
             className="shrink text-sm font-semibold">
             {asset.symbol}
           </Text>
-          {Phase && <Phase size={11} color={ink} strokeWidth={2.25} />}
+          <PhaseIcon state={asset.quote?.marketState} color={ink} />
         </View>
         <View className="flex-row items-baseline gap-1.5">
           <Text style={{ color: ink }} className="text-lg font-semibold">

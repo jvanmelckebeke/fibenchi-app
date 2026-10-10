@@ -2,16 +2,15 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { PhaseIcon } from '@/components/phase-icon';
 import { Sparkline } from '@/components/sparkline';
 import { Text } from '@/components/ui/text';
 import { formatPrice, sessionBadge, signedPercent, trendColor } from '@/lib/format';
-import { market } from '@/lib/market';
+import { market, type Quote } from '@/lib/market';
 import type { PulseAsset } from '@/lib/pulse';
 import { SIGMA_LABEL, formatSigma, sigmaChipStyle } from '@/lib/sigma-ramp';
-import { useTheme } from '@/lib/theme';
+import { useTheme, type ThemePalette } from '@/lib/theme';
 import { useAsync } from '@/lib/use-async';
-
-import { MarketDot } from './market-dot';
 
 interface SigmaRowProps {
   asset: PulseAsset;
@@ -75,7 +74,10 @@ export function SigmaRow({ asset, fresh }: SigmaRowProps) {
             className="text-base font-semibold text-foreground">
             {symbol}
           </Text>
-          <MarketDot state={quote?.marketState} fresh={fresh} />
+          <PhaseIcon
+            state={quote?.marketState}
+            color={fresh ? phaseColor(quote?.marketState, theme) : theme.mutedForeground}
+          />
         </View>
         {stamp && <Text className="text-xs text-muted-foreground">{stamp}</Text>}
       </View>
@@ -85,7 +87,11 @@ export function SigmaRow({ asset, fresh }: SigmaRowProps) {
       <View className="items-end" style={{ opacity: fresh ? 1 : 0.6 }}>
         <Text className="text-base font-semibold text-foreground">
           {price !== null
-            ? formatPrice(price, { symbol, currency: quote?.currency ?? 'USD' })
+            ? formatPrice(price, {
+                symbol,
+                currency: quote?.currency ?? 'USD',
+                index: quote?.isIndex,
+              })
             : '—'}
         </Text>
         {changePct != null && (
@@ -96,4 +102,18 @@ export function SigmaRow({ asset, fresh }: SigmaRowProps) {
       </View>
     </Pressable>
   );
+}
+
+/** Session colours, so open reads green and pre blue (the Board inks the glyph to its card). */
+function phaseColor(state: Quote['marketState'] | undefined, theme: ThemePalette): string {
+  switch (state) {
+    case 'regular':
+      return theme.marketRegular;
+    case 'pre':
+      return theme.marketPre;
+    case 'post':
+      return theme.marketPost;
+    default:
+      return theme.marketClosed;
+  }
 }

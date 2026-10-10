@@ -27,6 +27,8 @@ export interface Quote {
    * count as closed for cadence purposes.
    */
   isOpen: boolean;
+  /** Yahoo's instrumentType is INDEX: a point value that takes no currency symbol. */
+  isIndex: boolean;
   /** Epoch seconds of the last regular-market print. */
   marketTime: number;
   /**
