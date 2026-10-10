@@ -60,7 +60,13 @@ interface Outcome {
 
 let outcomes: Outcome[] = [];
 let circuitOpenUntil = 0;
-let queue: (() => void)[] = [];
+/**
+ * Two lanes behind one gate. A quote is what makes a row show a number, so it
+ * goes ahead of the bulk history: on a cold open the % lands in the first wave
+ * of requests instead of after all 88 daily series.
+ */
+export type RequestLane = 'quote' | 'bulk';
+let queues: Record<RequestLane, (() => void)[]> = { quote: [], bulk: [] };
 let active = 0;
 
 /** Non-200s and totals per minute — the numbers that would establish Yahoo's
@@ -83,7 +89,7 @@ export function requestStats(): RequestStats {
     failures,
     failureRate: outcomes.length === 0 ? 0 : failures / outcomes.length,
     circuitOpen: Date.now() < circuitOpenUntil,
-    queued: queue.length,
+    queued: queues.quote.length + queues.bulk.length,
   };
 }
 
@@ -104,16 +110,16 @@ function record(ok: boolean): void {
 }
 
 /** Run `fn` with at most `MAX_CONCURRENT` requests in flight process-wide. */
-async function gated<T>(fn: () => Promise<T>): Promise<T> {
+async function gated<T>(fn: () => Promise<T>, lane: RequestLane): Promise<T> {
   if (active >= MAX_CONCURRENT) {
-    await new Promise<void>((resolve) => queue.push(resolve));
+    await new Promise<void>((resolve) => queues[lane].push(resolve));
   }
   active++;
   try {
     return await fn();
   } finally {
     active--;
-    queue.shift()?.();
+    (queues.quote.shift() ?? queues.bulk.shift())?.();
   }
 }
 
@@ -124,7 +130,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * JSON. Throws on exhausted retries or an open circuit; callers decide how to
  * degrade.
  */
-export async function fetchYahooJson(path: string): Promise<unknown> {
+export async function fetchYahooJson(path: string, lane: RequestLane = 'bulk'): Promise<unknown> {
   if (Date.now() < circuitOpenUntil) {
     throw new Error('yahoo: circuit open after repeated failures, backing off');
   }
@@ -133,7 +139,7 @@ export async function fetchYahooJson(path: string): Promise<unknown> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const host = YAHOO_HOSTS[attempt % YAHOO_HOSTS.length];
     try {
-      const json = await gated(() => getJson(`https://${host}${path}`));
+      const json = await gated(() => getJson(`https://${host}${path}`), lane);
       record(true);
       return json;
     } catch (error) {
@@ -171,6 +177,6 @@ async function getJson(url: string): Promise<unknown> {
 export function __resetClientState(): void {
   outcomes = [];
   circuitOpenUntil = 0;
-  queue = [];
+  queues = { quote: [], bulk: [] };
   active = 0;
 }

@@ -60,7 +60,7 @@ export class YahooProvider extends PriceProvider {
   /** Cached meta-only chart JSON — the quote poll's payload. */
   private quoteChart(symbol: string): Promise<unknown> {
     return this.cache.remember(`quote:${symbol}`, QUOTE_TTL_MS, () =>
-      fetchYahooJson(chartPath(symbol, { interval: '1d', range: '1d' }))
+      fetchYahooJson(chartPath(symbol, { interval: '1d', range: '1d' }), 'quote')
     );
   }
 
