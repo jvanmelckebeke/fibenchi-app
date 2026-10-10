@@ -50,16 +50,39 @@ function relativeStart(days: number, now: number): string {
   return isoDate(d);
 }
 
+// Date arithmetic is slow on Hermes, and the Board asks for the same three
+// bounds once per card. Both caches are tiny: three windows per clock tick, and
+// a handful of ISO dates.
+const boundsCache = new Map<string, WindowBounds>();
+const isoDayCache = new Map<string, number>();
+
 export function windowBounds(window: MoverWindow, now: number): WindowBounds {
+  const key = `${window}:${now}`;
+  const cached = boundsCache.get(key);
+  if (cached) return cached;
+  if (boundsCache.size > 30) boundsCache.clear();
   const days = MOVER_WINDOWS.find((w) => w.value === window)!.days;
-  return {
+  const bounds = {
     start: relativeStart(days, now),
     latestBaseline: relativeStart(days - BASELINE_GRACE_DAYS, now),
   };
+  boundsCache.set(key, bounds);
+  return bounds;
 }
 
-/** A daily bar's session date. Daily bar stamps line up with UTC dates. */
-const barDate = (bar: OhlcBar) => new Date(bar.time * 1000).toISOString().slice(0, 10);
+/** A daily bar's session as a whole UTC day. Daily bar stamps line up with UTC dates. */
+const barDay = (bar: OhlcBar) => Math.floor(bar.time / 86_400);
+
+/** An ISO date as a whole UTC day, comparable with `barDay`. */
+function isoDay(iso: string): number {
+  const cached = isoDayCache.get(iso);
+  if (cached !== undefined) return cached;
+  if (isoDayCache.size > 60) isoDayCache.clear();
+  const [y, m, d] = iso.split('-').map(Number);
+  const day = Date.UTC(y, m - 1, d) / 86_400_000;
+  isoDayCache.set(iso, day);
+  return day;
+}
 
 /**
  * Percent change from the window's baseline close to `last`, or null when the
@@ -68,12 +91,13 @@ const barDate = (bar: OhlcBar) => new Date(bar.time * 1000).toISOString().slice(
 export function windowPct(bars: OhlcBar[], last: number, bounds: WindowBounds): number | null {
   if (bars.length === 0) return null;
 
+  const start = isoDay(bounds.start);
   let base: OhlcBar | null = null;
   for (const bar of bars) {
-    if (barDate(bar) <= bounds.start) base = bar;
+    if (barDay(bar) <= start) base = bar;
     else break;
   }
-  if (!base && barDate(bars[0]) <= bounds.latestBaseline) base = bars[0];
+  if (!base && barDay(bars[0]) <= isoDay(bounds.latestBaseline)) base = bars[0];
 
   if (!base || base.close === 0) return null;
   return ((last - base.close) / base.close) * 100;

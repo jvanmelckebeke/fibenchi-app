@@ -96,3 +96,33 @@ describe('concurrency gate', () => {
     expect(peak).toBe(6);
   });
 });
+
+describe('request lanes', () => {
+  it('lets queued quotes go ahead of queued history', async () => {
+    const order: string[] = [];
+    const releases: (() => void)[] = [];
+    global.fetch = jest.fn((url: string) => {
+      order.push(url.split('/').pop()!);
+      return new Promise((resolve) =>
+        releases.push(() => resolve({ ok: true, status: 200, json: async () => ({}) }))
+      );
+    }) as unknown as typeof fetch;
+
+    // Fill the gate with history, queue more history, then quotes.
+    const bulk = Array.from({ length: 10 }, (_, i) => fetchYahooJson(`/bulk${i}`, 'bulk'));
+    const quotes = Array.from({ length: 2 }, (_, i) => fetchYahooJson(`/quote${i}`, 'quote'));
+    await Promise.resolve();
+    expect(order).toEqual(['bulk0', 'bulk1', 'bulk2', 'bulk3', 'bulk4', 'bulk5']);
+
+    releases.shift()!();
+    releases.shift()!();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order.slice(6)).toEqual(['quote0', 'quote1']);
+
+    while (releases.length) {
+      releases.shift()!();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    await Promise.all([...bulk, ...quotes]);
+  });
+});

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { market, type Quote } from '@/lib/market';
 
+import { bumpBook } from './revision';
+
 // Per-symbol quote store: a tick for one symbol re-renders only that symbol's
 // card, not the whole list (the RN analog of Fibenchi's SSE per-symbol store).
 
@@ -35,18 +37,10 @@ function subscribe(symbol: string, listener: () => void): () => void {
   return () => set.delete(listener);
 }
 
-// A book-wide revision counter alongside the per-symbol listeners. Per-symbol
-// subscription is what keeps a tick from re-rendering the whole list, but a
-// screen that *aggregates* the book (ranking, breadth) genuinely depends on every
-// symbol, and it can't call a hook per symbol when the count is dynamic.
-let revision = 0;
-const bookListeners = new Set<() => void>();
-
 function update(symbol: string, next: QuoteState): void {
   states.set(symbol, next);
-  revision++;
   listeners.get(symbol)?.forEach((listener) => listener());
-  bookListeners.forEach((listener) => listener());
+  bumpBook();
 }
 
 function recordQuote(quote: Quote): void {
@@ -75,19 +69,12 @@ export function useQuoteState(symbol: string): QuoteState {
 }
 
 /**
- * Subscribe to the whole book: re-renders on any symbol's tick and returns a
- * snapshot keyed by symbol. For the Pulse, which ranks and counts across every
- * symbol — a per-row subscription can't express that. Everything else should keep
- * using `useQuote`, which re-renders one row.
+ * Every symbol's latest state, keyed by symbol, as of the book `revision` (see
+ * `useBookRevision`). For the Pulse and the Board, which rank and count across
+ * every symbol; a per-row subscription can't express that. Everything else
+ * should keep using `useQuote`, which re-renders one row.
  */
-export function useQuoteBook(symbols: string[]): Record<string, QuoteState> {
-  const revisionNow = useSyncExternalStore(
-    (listener) => {
-      bookListeners.add(listener);
-      return () => bookListeners.delete(listener);
-    },
-    () => revision
-  );
+export function useQuoteBook(symbols: string[], revision: number): Record<string, QuoteState> {
   const key = symbols.join(',');
   return useMemo(() => {
     const book: Record<string, QuoteState> = {};
@@ -95,7 +82,7 @@ export function useQuoteBook(symbols: string[]): Record<string, QuoteState> {
     return book;
     // Rebuilt per revision; `key` captures the symbol set by value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, revisionNow]);
+  }, [key, revision]);
 }
 
 /**

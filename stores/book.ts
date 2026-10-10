@@ -7,6 +7,7 @@ import { buildPulseBook, type PulseBook } from '@/lib/pulse';
 
 import { useDailyBook } from './daily';
 import { GLANCE_CADENCE_MS, usePolledQuotes, useQuoteBook } from './quotes';
+import { useBookRevision } from './revision';
 
 /**
  * Poll every tracked symbol's quotes while mounted. It lives in the drawer
@@ -46,8 +47,9 @@ export function useBook(scope: BookScope = 'book'): BookView {
     () => (scope === 'tracked' ? trackedSymbols(config) : bookSymbols(config)),
     [config, scope]
   );
-  const quotes = useQuoteBook(symbols);
-  const daily = useDailyBook(symbols);
+  const revision = useBookRevision();
+  const quotes = useQuoteBook(symbols, revision);
+  const daily = useDailyBook(symbols, revision);
 
   // A clock tick, so time stamps and staleness advance without a quote having
   // to land. Being offline is exactly the case where none will.

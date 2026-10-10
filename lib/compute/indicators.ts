@@ -300,8 +300,39 @@ function weekdaysBetween(from: number, to: number): number {
   return count;
 }
 
-export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMove {
+/** What σ-Move reads from a daily series, computed once per series. */
+interface SigmaSeries {
+  fields: ComputedIndicators['fields'];
+  /** Usable (non-gap) returns through each bar, cumulative. */
+  usableThrough: number[];
+}
+
+/**
+ * Keyed by the bars array itself. The daily store hands out the same array
+ * until it refetches, so every quote tick after the first reuses the series
+ * instead of recomputing every indicator over six months of bars.
+ */
+const seriesCache = new WeakMap<OhlcBar[], SigmaSeries>();
+
+function sigmaSeries(bars: OhlcBar[]): SigmaSeries {
+  const cached = seriesCache.get(bars);
+  if (cached) return cached;
   const { fields } = computeIndicators(bars);
+  // One per bar from index 1, minus the gap-spanning ones the kernel excludes
+  // from the variance. Counting non-null `vnr_sigma` instead would demand
+  // 2 x warmup bars, since the kernel applies the warmup itself.
+  const usableThrough = new Array<number>(bars.length).fill(0);
+  for (let i = 1; i < bars.length; i++) {
+    const usable = (fields.vnr_gap_sessions?.[i] ?? null) === null ? 1 : 0;
+    usableThrough[i] = usableThrough[i - 1] + usable;
+  }
+  const series = { fields, usableThrough };
+  seriesCache.set(bars, series);
+  return series;
+}
+
+export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMove {
+  const { fields, usableThrough } = sigmaSeries(bars);
   const n = bars.length;
 
   // While a venue is trading, Yahoo's daily series already carries today's
@@ -312,16 +343,7 @@ export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMo
     live?.sessionOpen === true && n > 1 && utcDay(bars[n - 1].time) === utcDay(live.asOf);
   const completed = forming ? n - 2 : n - 1;
 
-  // Count the returns the kernel actually observed: one per bar from index 1,
-  // minus the gap-spanning ones it excludes from the variance. This used to
-  // count non-null `vnr_sigma` instead, which was the same number only while
-  // the kernel emitted a forecast from the very first return. It now applies
-  // the contract's warmup itself, so counting its output would demand
-  // 2 x warmup bars before anything scored.
-  let usableReturns = 0;
-  for (let i = 1; i <= completed; i++) {
-    if ((fields.vnr_gap_sessions?.[i] ?? null) === null) usableReturns++;
-  }
+  const usableReturns = completed > 0 ? usableThrough[completed] : 0;
   if (usableReturns < SIGMA_MOVE_WARMUP) {
     return { kind: 'warmup', returns: usableReturns, needed: SIGMA_MOVE_WARMUP };
   }

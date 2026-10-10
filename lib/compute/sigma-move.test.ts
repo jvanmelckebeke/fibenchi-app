@@ -112,6 +112,18 @@ describe('sigmaMove', () => {
   /** A settled series: enough sessions to clear warmup, alternating moves. */
   const settled = sessions(SIGMA_MOVE_WARMUP + 20, (i) => 100 + (i % 2 === 0 ? 0 : 1.5));
 
+  it('caches per series: the same bars score the same, a refetched series is scored afresh', () => {
+    const first = sigmaMove(settled);
+    expect(sigmaMove(settled)).toEqual(first);
+    // The daily store swaps in a new array on refetch; a cached result for the
+    // old one must not leak into it.
+    const moved = [...settled.slice(0, -1), { ...settled[settled.length - 1], close: 140 }];
+    const second = sigmaMove(moved);
+    expect(second.kind === 'scored' && first.kind === 'scored' && second.sigma).not.toBe(
+      first.kind === 'scored' && first.sigma
+    );
+  });
+
   it('reports warmup progress before the baseline is built', () => {
     const result = sigmaMove(sessions(30, (i) => 100 + (i % 2 === 0 ? 0 : 1)));
     expect(result).toEqual({ kind: 'warmup', returns: 29, needed: SIGMA_MOVE_WARMUP });

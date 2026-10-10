@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { indicatorHistoryPeriod } from '@/lib/compute';
 import { market, type OhlcBar } from '@/lib/market';
+
+import { bumpBook } from './revision';
 
 // Daily bars for a whole book of symbols, which is what σ-Move needs and what
 // `TickerCard` already pulls per row. These are the *same* cached fetches — the
@@ -27,9 +29,11 @@ const isStale = (symbol: string, now: number) => now - (fetchedAt.get(symbol) ??
  * served from the module map, so navigating back to the screen doesn't re-fetch
  * or re-flash an empty book.
  */
-export function useDailyBook(symbols: string[]): Record<string, OhlcBar[] | undefined> {
+export function useDailyBook(
+  symbols: string[],
+  revision: number
+): Record<string, OhlcBar[] | undefined> {
   const key = symbols.join(',');
-  const [loaded, setLoaded] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,9 +48,8 @@ export function useDailyBook(symbols: string[]): Record<string, OhlcBar[] | unde
         if (cancelled || !series || series.length === 0) return;
         bars.set(symbol, series);
         fetchedAt.set(symbol, Date.now());
-        // One re-render per arrival: the screen shows five of ~44 rows, so a
-        // book that fills in progressively settles rather than popping in at once.
-        setLoaded((n) => n + 1);
+        // Through the book revision, so arrivals fold into its throttled rebuilds.
+        bumpBook();
       })
     );
     return () => {
@@ -60,5 +63,5 @@ export function useDailyBook(symbols: string[]): Record<string, OhlcBar[] | unde
     for (const symbol of symbols) book[symbol] = bars.get(symbol);
     return book;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, loaded]);
+  }, [key, revision]);
 }
