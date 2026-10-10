@@ -41,6 +41,49 @@ export function bookSymbols(config: CompanionConfig | null): string[] {
   return [...seen];
 }
 
+/**
+ * Every symbol the app tracks: the book plus thesis members in no group, which
+ * the Board shows when grouped by thesis. Polling and daily bars cover this set,
+ * so flipping the toggle has its numbers already.
+ */
+export function trackedSymbols(config: CompanionConfig | null): string[] {
+  const seen = new Set(bookSymbols(config));
+  for (const thesis of config?.theses ?? []) {
+    for (const symbol of thesis.symbols ?? []) seen.add(symbol);
+  }
+  return [...seen];
+}
+
+export interface SymbolSection {
+  title: string;
+  symbols: string[];
+  /** Thesis colour, for the section's accent. */
+  accent?: string | null;
+}
+
+/** The Board's group sections, in display order. */
+export function groupSections(config: CompanionConfig | null): SymbolSection[] {
+  return orderedGroups(config).map((g) => ({ title: g.name, symbols: g.symbols ?? [] }));
+}
+
+/**
+ * The Board's thesis sections, in the bundle's order, then a trailing
+ * "No thesis" section with the book's symbols that belong to none, as on the
+ * web board. A symbol in two theses shows in both.
+ */
+export function thesisSections(config: CompanionConfig | null): SymbolSection[] {
+  const theses = config?.theses ?? [];
+  const inThesis = new Set(theses.flatMap((t) => t.symbols ?? []));
+  const sections: SymbolSection[] = theses.map((t) => ({
+    title: t.name,
+    symbols: t.symbols ?? [],
+    accent: t.color,
+  }));
+  const rest = bookSymbols(config).filter((symbol) => !inThesis.has(symbol));
+  if (rest.length > 0) sections.push({ title: 'No thesis', symbols: rest });
+  return sections;
+}
+
 export type DecodeResult =
   | { ok: true; config: CompanionConfig }
   | { ok: false; reason: 'version'; error: string }

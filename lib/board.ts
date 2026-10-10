@@ -14,6 +14,7 @@ export type BoardFilter = 'all' | 'open';
 export interface BoardSectionInput {
   title: string;
   symbols: string[];
+  accent?: string | null;
 }
 
 export interface BoardTile {
@@ -26,6 +27,8 @@ export interface BoardTile {
 
 export interface BoardSection {
   title: string;
+  /** Thesis colour; null for group sections and "No thesis". */
+  accent: string | null;
   tiles: BoardTile[];
 }
 
@@ -79,6 +82,7 @@ export function buildBoard(
   const built = sections
     .map((section) => ({
       title: section.title,
+      accent: section.accent ?? null,
       tiles: section.symbols
         .map((symbol) => bySymbol.get(symbol))
         .filter((asset): asset is PulseAsset => asset !== undefined)
