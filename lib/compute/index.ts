@@ -8,6 +8,7 @@ export {
   getMaxWarmup,
   indicatorHistoryPeriod,
   macdSeries,
+  primeSigmaSeries,
   rsiSeries,
   rsiZone,
   sigmaMove,
@@ -19,4 +20,5 @@ export type {
   RsiPoint,
   RsiZone,
   SigmaMove,
+  SigmaPoint,
 } from './indicators';
