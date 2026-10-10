@@ -10,7 +10,7 @@ import { MOVER_WINDOWS } from '@/lib/movers';
 import { formatSigma } from '@/lib/sigma-ramp';
 import { useTheme } from '@/lib/theme';
 
-/** The web tile's bar fills (Tailwind emerald-300 / rose-300) and its 12% stub. */
+/** The web tile's bar fills (Tailwind emerald-300 / rose-300) and its 12% stub for a real reading. */
 const BAR_UP = '#6ee7b7';
 const BAR_DOWN = '#fda4af';
 const MIN_FILL = 0.12;
@@ -26,7 +26,9 @@ interface BoardRowProps {
  * One asset per row: the web board's tile laid out for a phone's width. Left is
  * what the tile shows (ticker, phase glyph, σ or today's %, on the ramp
  * colour); right is the tile's window strip with its numbers written in, since
- * a phone has no hover for the web's tooltip.
+ * a phone has no hover for the web's tooltip. A bar's length is how unusual
+ * the move is for this symbol: the share of its own moves for that window that
+ * were smaller, over 52 weeks (1wk, 2wk) or 2 years (1mo).
  */
 export function BoardRow({ tile, mode, span, fresh }: BoardRowProps) {
   const router = useRouter();
@@ -88,7 +90,9 @@ export function BoardRow({ tile, mode, span, fresh }: BoardRowProps) {
       <View className="flex-1 flex-row gap-2">
         {MOVER_WINDOWS.map((w) => {
           const pct = windows[w.value];
-          const fill = pct === null ? 0 : Math.max(MIN_FILL, Math.min(1, Math.abs(pct) / w.maxAbs));
+          // How unusual the move is for this symbol; no scale, no bar.
+          const rank = tile.ranks[w.value];
+          const fill = rank === null ? 0 : Math.max(MIN_FILL, rank);
           return (
             <View key={w.value} className="flex-1">
               <Text style={{ color: ink, opacity: 0.7 }} className="text-[10px]">

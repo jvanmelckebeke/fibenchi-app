@@ -143,6 +143,31 @@ describe('buildBoard', () => {
     expect(asml.windows).toEqual({ '1wk': null, '2wk': null, '1mo': null });
   });
 
+  it("ranks each window's move against the symbol's own scale, null without one", () => {
+    const day = (iso: string, close: number) => ({
+      time: Date.parse(`${iso}T12:00:00Z`) / 1000,
+      open: close,
+      high: close,
+      low: close,
+      close,
+      adjClose: null,
+      volume: null,
+    });
+    const daily = { NVDA: [day('2026-07-20', 80), day('2026-08-06', 90), day('2026-08-13', 95)] };
+    const linear = {
+      quantiles: Array.from({ length: 21 }, (_, i) => i),
+      samples: 250,
+      lookbackDays: 364,
+    };
+    const scales = { NVDA: { '1wk': linear, '2wk': linear, '1mo': null } };
+    const board = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', daily, NOW, scales);
+    const [nvda, asml] = board.sections[0].tiles;
+    // 1wk: 100 / 95 - 1 = 5.26%, which sits at 5.26 x 5% on the linear scale.
+    expect(nvda.ranks['1wk']).toBeCloseTo(((100 / 95 - 1) * 100) / 20);
+    expect(nvda.ranks['1mo']).toBeNull();
+    expect(asml.ranks).toEqual({ '1wk': null, '2wk': null, '1mo': null });
+  });
+
   it('holds the canonical span while too little of the book has a reading', () => {
     // 3 of 5 scored is under the 0.9 gate, so the ramp may not tighten.
     expect(buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW).span).toBe(3);

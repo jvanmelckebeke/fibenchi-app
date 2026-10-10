@@ -12,16 +12,12 @@ import type { OhlcBar } from '@/lib/market';
 
 export type MoverWindow = '1wk' | '2wk' | '1mo';
 
-/**
- * The windows, as the web board's `PCT_WINDOWS`. `maxAbs` is the move that fills
- * a window's bar on a Board card: past it, a longer bar adds nothing.
- */
-export const MOVER_WINDOWS: { value: MoverWindow; label: string; days: number; maxAbs: number }[] =
-  [
-    { value: '1wk', label: '1wk', days: 7, maxAbs: 7 },
-    { value: '2wk', label: '2wk', days: 14, maxAbs: 10 },
-    { value: '1mo', label: '1mo', days: 30, maxAbs: 14 },
-  ];
+/** The windows, as the web board's `PCT_WINDOWS`. */
+export const MOVER_WINDOWS: { value: MoverWindow; label: string; days: number }[] = [
+  { value: '1wk', label: '1wk', days: 7 },
+  { value: '2wk', label: '2wk', days: 14 },
+  { value: '1mo', label: '1mo', days: 30 },
+];
 
 /** Rows per side, as on the web rail. */
 export const MOVERS_PER_SIDE = 5;
