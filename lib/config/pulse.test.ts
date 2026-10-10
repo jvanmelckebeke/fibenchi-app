@@ -21,6 +21,7 @@ function entry(): CompanionPulse['symbols'][string] {
   const [prev, last] = closes.slice(-2);
   return {
     closes,
+    moveScale: null,
     tail: [
       { ...prev, vnr: 0.4, vnrSigma: 0.01, gapSessions: null, returns: 119 },
       { ...last, vnr: 1.2, vnrSigma: 0.012, gapSessions: null, returns: 120 },
@@ -28,7 +29,7 @@ function entry(): CompanionPulse['symbols'][string] {
   };
 }
 
-const bundle = (symbols: CompanionPulse['symbols']) => ({
+const bundle = (symbols: Record<string, unknown>) => ({
   version: 1,
   generatedAt: '2026-10-08T21:00:00Z',
   symbols,
@@ -67,7 +68,7 @@ describe('pulseBars', () => {
     const e = entry();
     e.tail[1] = { ...e.tail[1], date: '2026-10-09' };
     expect(pulseBars(e)).toBeNull();
-    expect(pulseBars({ closes: [], tail: [] })).toBeNull();
+    expect(pulseBars({ closes: [], tail: [], moveScale: null })).toBeNull();
   });
 });
 
@@ -87,6 +88,21 @@ describe('fetchPulse', () => {
     expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
       'https://fibenchi.example/api/companion/pulse'
     );
+  });
+
+  it("keeps each symbol's move scales, and reads an older server's missing field as null", async () => {
+    const scale = {
+      quantiles: Array.from({ length: 21 }, (_, i) => i),
+      samples: 250,
+      lookbackDays: 364,
+    };
+    const withScale = { ...entry(), moveScale: { '1wk': scale, '2wk': scale, '1mo': null } };
+    const { moveScale, ...older } = entry();
+    respond(200, bundle({ IBM: withScale, OLD: older }));
+    const pulse = await fetchPulse('https://fibenchi.example');
+    expect(pulse!.symbols.IBM.moveScale?.['1wk']?.quantiles).toHaveLength(21);
+    expect(pulse!.symbols.IBM.moveScale?.['1mo']).toBeNull();
+    expect(pulse!.symbols.OLD.moveScale).toBeNull();
   });
 
   it('falls back (null) on 404, a newer version, a bad payload, no endpoint or no network', async () => {

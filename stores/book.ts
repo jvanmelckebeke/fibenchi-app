@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { bookSymbols, trackedSymbols } from '@/lib/config';
 import { useConfig } from '@/lib/config/provider';
 import type { OhlcBar } from '@/lib/market';
+import type { MoveScales } from '@/lib/move-scale';
 import { buildPulseBook, type PulseBook } from '@/lib/pulse';
 
-import { useDailyBook } from './daily';
+import { useDailyBook, useMoveScales } from './daily';
 import { GLANCE_CADENCE_MS, usePolledQuotes, useQuoteBook } from './quotes';
 import { useBookRevision } from './revision';
 
@@ -25,6 +26,8 @@ export interface BookView {
   book: PulseBook;
   /** Daily bars per symbol, filling in as they arrive. */
   daily: Record<string, OhlcBar[] | undefined>;
+  /** Move-bar scales per symbol, from fibenchi's bundle. */
+  scales: Record<string, MoveScales | undefined>;
   /** The clock the book was built against (epoch ms), ticking every 30s. */
   now: number;
 }
@@ -50,6 +53,7 @@ export function useBook(scope: BookScope = 'book'): BookView {
   const revision = useBookRevision();
   const quotes = useQuoteBook(symbols, revision);
   const daily = useDailyBook(symbols, revision, endpoint);
+  const scales = useMoveScales(symbols, revision);
 
   // A clock tick, so time stamps and staleness advance without a quote having
   // to land. Being offline is exactly the case where none will.
@@ -64,5 +68,5 @@ export function useBook(scope: BookScope = 'book'): BookView {
     [symbols, quotes, daily, now]
   );
 
-  return { symbols, book, daily, now };
+  return { symbols, book, daily, scales, now };
 }

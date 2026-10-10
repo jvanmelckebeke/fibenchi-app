@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { indicatorHistoryPeriod } from '@/lib/compute';
 import { fetchPulse, pulseBars } from '@/lib/config/pulse';
 import { market, type OhlcBar } from '@/lib/market';
+import type { MoveScales } from '@/lib/move-scale';
 
 import { bumpBook } from './revision';
 
@@ -15,6 +16,11 @@ import { bumpBook } from './revision';
 
 const bars = new Map<string, OhlcBar[]>();
 const fetchedAt = new Map<string, number>();
+/**
+ * Each symbol's move-bar scales, from the same bundle. Yahoo has no
+ * equivalent, so a symbol filled from Yahoo has none and its bars stay empty.
+ */
+const scales = new Map<string, MoveScales>();
 
 /**
  * Matches the provider's daily TTL. Holding bars in this map for the life of the
@@ -58,6 +64,7 @@ export function useDailyBook(
       const rest: string[] = [];
       for (const symbol of missing) {
         const entry = pulse?.symbols[symbol];
+        if (entry?.moveScale) scales.set(symbol, entry.moveScale);
         const series = entry ? pulseBars(entry) : null;
         if (series) store(symbol, series);
         else rest.push(symbol);
@@ -80,6 +87,20 @@ export function useDailyBook(
     const book: Record<string, OhlcBar[] | undefined> = {};
     for (const symbol of symbols) book[symbol] = bars.get(symbol);
     return book;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, revision]);
+}
+
+/** Move-bar scales per symbol, as of the book `revision`; absent until the bundle lands. */
+export function useMoveScales(
+  symbols: string[],
+  revision: number
+): Record<string, MoveScales | undefined> {
+  const key = symbols.join(',');
+  return useMemo(() => {
+    const out: Record<string, MoveScales | undefined> = {};
+    for (const symbol of symbols) out[symbol] = scales.get(symbol);
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, revision]);
 }

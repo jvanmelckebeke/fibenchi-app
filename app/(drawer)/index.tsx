@@ -48,7 +48,7 @@ export default function Pulse() {
     navigation.setOptions({ title: 'Pulse', headerRight: HeaderSearch });
   }, [navigation, HeaderSearch]);
 
-  const { symbols, book, daily, now } = useBook();
+  const { symbols, book, daily, scales, now } = useBook();
 
   if (needsOnboarding) return <Redirect href="/onboard" />;
 
@@ -100,7 +100,7 @@ export default function Pulse() {
 
       <IndexCard />
 
-      <MoversCard assets={book.assets} daily={daily} now={now} />
+      <MoversCard assets={book.assets} daily={daily} scales={scales} now={now} />
     </ScrollView>
   );
 }

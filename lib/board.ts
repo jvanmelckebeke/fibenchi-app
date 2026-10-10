@@ -1,6 +1,7 @@
 import { boardSpan, type ColorMode } from '@/lib/board-scale';
 import type { OhlcBar } from '@/lib/market';
-import { windowReturns, type WindowReturns } from '@/lib/movers';
+import { movePercentile, type MoveScales } from '@/lib/move-scale';
+import { windowReturns, type MoverWindow, type WindowReturns } from '@/lib/movers';
 import type { PulseAsset } from '@/lib/pulse';
 
 // The Board: every asset as a coloured tile, in sections. This is the phone's
@@ -23,6 +24,8 @@ export interface BoardTile {
   value: number | null;
   /** % over 1wk / 2wk / 1mo, as the web tile's bar strip. */
   windows: WindowReturns;
+  /** How unusual each window's move is for this symbol, 0 to 1; null without a scale. */
+  ranks: Record<MoverWindow, number | null>;
 }
 
 export interface BoardSection {
@@ -73,7 +76,8 @@ export function buildBoard(
   mode: ColorMode,
   filter: BoardFilter,
   daily: Record<string, OhlcBar[] | undefined>,
-  now: number
+  now: number,
+  scales: Record<string, MoveScales | undefined> = {}
 ): BoardView {
   const bySymbol = new Map(assets.map((asset) => [asset.symbol, asset]));
 
@@ -87,11 +91,17 @@ export function buildBoard(
         .map((symbol) => bySymbol.get(symbol))
         .filter((asset): asset is PulseAsset => asset !== undefined)
         .filter((asset) => filter === 'all' || isOpen(asset))
-        .map((asset) => ({
-          asset,
-          value: reading(asset, mode),
-          windows: windowReturns(daily[asset.symbol], asset.quote?.price ?? null, now),
-        }))
+        .map((asset) => {
+          const windows = windowReturns(daily[asset.symbol], asset.quote?.price ?? null, now);
+          const own = scales[asset.symbol];
+          const rank = (w: MoverWindow) => movePercentile(windows[w], own?.[w] ?? null);
+          return {
+            asset,
+            value: reading(asset, mode),
+            windows,
+            ranks: { '1wk': rank('1wk'), '2wk': rank('2wk'), '1mo': rank('1mo') },
+          };
+        })
         .sort(byReading),
     }))
     .filter((section) => section.tiles.length > 0);

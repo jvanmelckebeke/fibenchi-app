@@ -45,15 +45,15 @@ export default function Board() {
   // A server that predates theses in the bundle sends none: no toggle then.
   const hasTheses = (config?.theses?.length ?? 0) > 0;
   const byThesis = hasTheses && grouping === 'thesis';
-  const { book, daily, now } = useBook(byThesis ? 'tracked' : 'book');
+  const { book, daily, scales, now } = useBook(byThesis ? 'tracked' : 'book');
 
   const sections = useMemo(
     () => (byThesis ? thesisSections(config) : groupSections(config)),
     [config, byThesis]
   );
   const board = useMemo(
-    () => buildBoard(book.assets, sections, mode, filter, daily, now),
-    [book.assets, sections, mode, filter, daily, now]
+    () => buildBoard(book.assets, sections, mode, filter, daily, now, scales),
+    [book.assets, sections, mode, filter, daily, now, scales]
   );
 
   if (needsOnboarding) return <Redirect href="/onboard" />;
