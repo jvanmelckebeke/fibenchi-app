@@ -42,14 +42,14 @@ export type BookScope = 'book' | 'tracked';
  * shared with every other screen.
  */
 export function useBook(scope: BookScope = 'book'): BookView {
-  const { config } = useConfig();
+  const { config, endpoint } = useConfig();
   const symbols = useMemo(
     () => (scope === 'tracked' ? trackedSymbols(config) : bookSymbols(config)),
     [config, scope]
   );
   const revision = useBookRevision();
   const quotes = useQuoteBook(symbols, revision);
-  const daily = useDailyBook(symbols, revision);
+  const daily = useDailyBook(symbols, revision, endpoint);
 
   // A clock tick, so time stamps and staleness advance without a quote having
   // to land. Being offline is exactly the case where none will.

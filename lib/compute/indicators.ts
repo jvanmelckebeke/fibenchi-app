@@ -331,6 +331,36 @@ function sigmaSeries(bars: OhlcBar[]): SigmaSeries {
   return series;
 }
 
+/** σ-Move's inputs at one bar, as a server that already ran the kernel reports them. */
+export interface SigmaPoint {
+  vnr: number | null;
+  vnrSigma: number | null;
+  gapSessions: number | null;
+  /** Usable (non-gap) returns observed through this bar. */
+  returns: number;
+}
+
+/**
+ * Seed the cache for `bars` with values computed elsewhere for its last bars, so
+ * `sigmaMove` scores a short series without the history the kernel would need.
+ * `tail` lines up with the end of `bars`. σ-Move only reads the last two bars.
+ */
+export function primeSigmaSeries(bars: OhlcBar[], tail: SigmaPoint[]): void {
+  const n = bars.length;
+  const empty = () => new Array<number | null>(n).fill(null);
+  const fields = { vnr: empty(), vnr_sigma: empty(), vnr_gap_sessions: empty() };
+  const usableThrough = new Array<number>(n).fill(0);
+  tail.forEach((point, k) => {
+    const i = n - tail.length + k;
+    if (i < 0) return;
+    fields.vnr[i] = point.vnr;
+    fields.vnr_sigma[i] = point.vnrSigma;
+    fields.vnr_gap_sessions[i] = point.gapSessions;
+    usableThrough[i] = point.returns;
+  });
+  seriesCache.set(bars, { fields, usableThrough });
+}
+
 export function sigmaMove(bars: OhlcBar[], live?: SigmaMoveLive | null): SigmaMove {
   const { fields, usableThrough } = sigmaSeries(bars);
   const n = bars.length;

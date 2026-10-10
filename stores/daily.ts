@@ -1,16 +1,17 @@
 import { useEffect, useMemo } from 'react';
 
 import { indicatorHistoryPeriod } from '@/lib/compute';
+import { fetchPulse, pulseBars } from '@/lib/config/pulse';
 import { market, type OhlcBar } from '@/lib/market';
 
 import { bumpBook } from './revision';
 
-// Daily bars for a whole book of symbols, which is what σ-Move needs and what
-// `TickerCard` already pulls per row. These are the *same* cached fetches — the
-// provider's 1h TTL means a card mount and the Pulse share one request per symbol
-// per hour — so the cost of this store is bookkeeping, not bandwidth. Request
-// concurrency is capped in the Yahoo client, so a 44-symbol cold open queues
-// rather than opening 44 sockets at once.
+// Daily bars for a whole book of symbols, which is what σ-Move and the window
+// returns need. Fibenchi's pulse bundle supplies the book in one request: 40
+// days of closes per symbol, with the server's σ inputs primed into the σ
+// cache. Symbols the bundle lacks, or every symbol when Fibenchi doesn't answer,
+// come from Yahoo as before: the provider's cached 6mo fetches, which a card
+// mount shares, behind the client's concurrency cap.
 
 const bars = new Map<string, OhlcBar[]>();
 const fetchedAt = new Map<string, number>();
@@ -31,7 +32,8 @@ const isStale = (symbol: string, now: number) => now - (fetchedAt.get(symbol) ??
  */
 export function useDailyBook(
   symbols: string[],
-  revision: number
+  revision: number,
+  endpoint: string | null
 ): Record<string, OhlcBar[] | undefined> {
   const key = symbols.join(',');
 
@@ -42,21 +44,37 @@ export function useDailyBook(
     if (missing.length === 0) return;
 
     const period = indicatorHistoryPeriod();
-    void Promise.all(
-      missing.map(async (symbol) => {
-        const series = await market.getDaily(symbol, period).catch(() => null);
-        if (cancelled || !series || series.length === 0) return;
-        bars.set(symbol, series);
-        fetchedAt.set(symbol, Date.now());
-        // Through the book revision, so arrivals fold into its throttled rebuilds.
-        bumpBook();
-      })
-    );
+    const store = (symbol: string, series: OhlcBar[]) => {
+      bars.set(symbol, series);
+      fetchedAt.set(symbol, Date.now());
+      // Through the book revision, so arrivals fold into its throttled rebuilds.
+      bumpBook();
+    };
+
+    void (async () => {
+      // One request to Fibenchi covers the book; Yahoo only fills what it lacks.
+      const pulse = await fetchPulse(endpoint);
+      if (cancelled) return;
+      const rest: string[] = [];
+      for (const symbol of missing) {
+        const entry = pulse?.symbols[symbol];
+        const series = entry ? pulseBars(entry) : null;
+        if (series) store(symbol, series);
+        else rest.push(symbol);
+      }
+      await Promise.all(
+        rest.map(async (symbol) => {
+          const series = await market.getDaily(symbol, period).catch(() => null);
+          if (cancelled || !series || series.length === 0) return;
+          store(symbol, series);
+        })
+      );
+    })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, endpoint]);
 
   return useMemo(() => {
     const book: Record<string, OhlcBar[] | undefined> = {};
