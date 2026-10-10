@@ -23,6 +23,16 @@ Three planes, deliberately decoupled:
   locally, re-synced daily-if-reachable + on demand. That endpoint is the only
   coupling to Fibenchi — keep the contract explicit.
 
+## Contract with Fibenchi
+
+The config schema, indicator contract and golden fixtures come from
+`@jvanmelckebeke/fibenchi-contract` (built in `fibenchi/contract/`). Pin the
+exact `x.y.z-dev.<hash>` version, never `latest`: the deployed server runs
+Fibenchi's `dev` image. A bump is its own PR; the golden test in
+`lib/compute/indicators.test.ts` is what fails when a kernel changes upstream.
+The package is ESM, so it stays in jest's `transformIgnorePatterns`. zod is its
+peer at ^3.25, so the app stays on zod 3 until the package moves.
+
 ## Stack
 
 Expo SDK 55 · React Native 0.83 · React 19 · expo-router (typed routes) ·
@@ -66,11 +76,14 @@ Finance color classes: `text-gain`/`bg-gain` (up), `text-loss` (down),
 - `npm run android` — run on a device/emulator
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run lint` / `npm run format`
+- `npm test` — jest
 - `npx @react-native-reusables/cli@latest add <component>` — add a UI primitive
 - Build APK: `npx eas-cli build -p android --profile preview`
-  (needs a one-time `eas login` + `eas init` to set `extra.eas.projectId` in `app.json`)
+- Dev-client APK: `npx eas-cli build -p android --profile development`.
+  Rebuild it after any react-native or expo-dev-client bump.
+- No CI. Before a PR: typecheck, lint, `npm test`, and
+  `npx expo export --platform android` to prove Metro bundles.
 
 ## Work tracking
 
-GitHub issues at `jvanmelckebeke/fibenchi-app` (epics labeled `epic`). This is
-issue #1 (scaffold & foundations).
+GitHub issues at `jvanmelckebeke/fibenchi-app` (epics labeled `epic`).
