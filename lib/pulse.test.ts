@@ -54,6 +54,7 @@ const quote = (over: Partial<Quote> = {}): Quote => ({
   shortName: null,
   marketState: 'regular',
   isOpen: true,
+  isIndex: false,
   marketTime: 0,
   regularWindow: null,
   ...over,

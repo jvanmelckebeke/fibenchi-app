@@ -96,3 +96,19 @@ describe('signedPercent', () => {
     expect(signedPercent(0)).toBe('0.00%');
   });
 });
+
+describe('index prices', () => {
+  it('never puts a currency on an index, with or without the ^ prefix', () => {
+    expect(formatPrice(102.18, { symbol: 'DX-Y.NYB', currency: 'USD', index: true })).toBe(
+      '102.18'
+    );
+    expect(formatPrice(23785.79, { symbol: '^HSI', currency: 'HKD' })).toBe('23,785.79');
+    expect(formatCompactPrice(49313.44, { symbol: 'DX-Y.NYB', currency: 'USD', index: true })).toBe(
+      '49,313.44'
+    );
+  });
+
+  it('keeps the currency on a priced asset', () => {
+    expect(formatPrice(102.18, { symbol: 'SPY', currency: 'USD', index: false })).toBe('$102.18');
+  });
+});

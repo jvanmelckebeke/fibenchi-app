@@ -20,6 +20,7 @@ const quote = (symbol: string, marketState: MarketState): Quote => ({
   shortName: null,
   marketState,
   isOpen: marketState === 'regular',
+  isIndex: false,
   marketTime: 0,
   regularWindow: null,
 });

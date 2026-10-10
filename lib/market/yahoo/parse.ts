@@ -114,6 +114,7 @@ export function parseQuote(json: unknown): Quote {
     shortName: str(meta.shortName) ?? str(meta.longName),
     marketState,
     isOpen: deriveIsOpen(meta, marketState),
+    isIndex: str(meta.instrumentType) === 'INDEX',
     marketTime: num(meta.regularMarketTime) ?? Math.floor(Date.now() / 1000),
     regularWindow: parseRegularWindow(meta),
   };

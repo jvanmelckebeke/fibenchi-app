@@ -19,8 +19,8 @@ interface SkeletonProps {
 
 /**
  * A pulsing placeholder block (muted fill, opacity breathing 0.5 ↔ 1) for
- * content that is loading. Reanimated-driven — same approach as `FlashOnChange`
- * — since RN/NativeWind don't run CSS keyframe animations. Style-driven (no
+ * content that is loading. Reanimated-driven, since RN/NativeWind don't run CSS
+ * keyframe animations. Style-driven (no
  * `className`) so it composes cleanly with the `Animated.View` it renders.
  */
 export function Skeleton({ width = '100%', height, radius = 6, style }: SkeletonProps) {

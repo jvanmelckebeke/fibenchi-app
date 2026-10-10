@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { DailyChart } from '@/components/daily-chart';
-import { FlashOnChange } from '@/components/flash-on-change';
 import { IntradayChart } from '@/components/intraday-chart';
 import { IntradayGrid } from '@/components/intraday-grid';
 import { MovementGrid } from '@/components/movement-grid';
@@ -19,7 +18,13 @@ import {
 } from '@/lib/compute';
 import { useConfig } from '@/lib/config/provider';
 import { sessionLabel } from '@/lib/date';
-import { formatPrice, sessionBadge, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
+import {
+  formatPrice,
+  sessionBadge,
+  signedPercent,
+  trendColor,
+  type PriceFormat,
+} from '@/lib/format';
 import { market, type Period } from '@/lib/market';
 import { useTheme, type ThemePalette } from '@/lib/theme';
 import { useAsync } from '@/lib/use-async';
@@ -110,7 +115,7 @@ export default function AssetDetail() {
   // One bundle of formatting hints, threaded to every price display below
   // (`currency` is undefined until the quote loads — `formatPrice` falls back to
   // a bare number until then).
-  const fmt: PriceFormat = { symbol: sym, currency: quote?.currency };
+  const fmt: PriceFormat = { symbol: sym, currency: quote?.currency, index: quote?.isIndex };
 
   const intradayPoints = intraday?.points ?? [];
   const lastIntraday = intradayPoints[intradayPoints.length - 1]?.price ?? 0;
@@ -148,11 +153,9 @@ export default function AssetDetail() {
         <View>
           <Text className="text-sm text-muted-foreground">{name}</Text>
           <View className="mt-1 flex-row items-end gap-3">
-            <FlashOnChange value={quote?.price} radius={6}>
-              <Text className="px-1 text-3xl font-bold text-foreground">
-                {quote ? formatPrice(quote.price, fmt) : '—'}
-              </Text>
-            </FlashOnChange>
+            <Text className="px-1 text-3xl font-bold text-foreground">
+              {quote ? formatPrice(quote.price, fmt) : '—'}
+            </Text>
             {changePct != null && (
               <Text className="pb-1 text-lg" style={{ color: priceColor }}>
                 {signedPercent(changePct)}
