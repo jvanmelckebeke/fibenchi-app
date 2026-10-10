@@ -21,8 +21,8 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       <Text className="px-4 pb-3 pt-2 text-xl font-bold text-foreground">Fibenchi</Text>
 
-      {/* The Pulse is pinned above the group list, not one of it: it's the
-          whole-book verdict, where every entry below is one slice of the book. */}
+      {/* The Pulse and the Board are pinned above the group list, not part of
+          it: they're whole-book views, where every entry below is one slice. */}
       <Pressable
         onPress={() => {
           props.navigation.closeDrawer();
@@ -31,6 +31,15 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
         className="mx-2 my-0.5 flex-row items-center justify-between rounded-lg px-3 py-3">
         <Text className="text-base font-medium text-foreground">Pulse</Text>
         <Text className="text-xs text-muted-foreground">σ</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          props.navigation.closeDrawer();
+          router.navigate('/board');
+        }}
+        className="mx-2 my-0.5 flex-row items-center justify-between rounded-lg px-3 py-3">
+        <Text className="text-base font-medium text-foreground">Board</Text>
+        <Text className="text-xs text-muted-foreground">all</Text>
       </Pressable>
       <View className="mx-4 my-1.5 h-[1px] bg-border" />
 

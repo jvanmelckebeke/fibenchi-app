@@ -179,6 +179,25 @@ describe('coverage', () => {
     );
     expect(book.unscored).toHaveLength(0);
   });
+
+  it('counts a symbol whose bars are in flight as pending, not as unscored', () => {
+    // The cold open: every quote has landed, one series hasn't. The badge must
+    // say "1 loading", since σ is about to fill in.
+    const book = buildPulseBook(
+      input({
+        symbols: ['DONE', 'SLOW'],
+        daily: { DONE: series(0.02) },
+        quotes: {
+          DONE: state({ quote: quote({ symbol: 'DONE', isOpen: false }) }),
+          SLOW: state({ quote: quote({ symbol: 'SLOW', isOpen: false }) }),
+        },
+      })
+    );
+    expect(book.scored).toBe(1);
+    expect(book.pending).toBe(1);
+    expect(book.unscored).toHaveLength(0);
+    expect(book.assets.map((a) => a.symbol)).toEqual(['DONE', 'SLOW']);
+  });
 });
 
 describe('staleness', () => {
@@ -243,6 +262,44 @@ describe('stamps', () => {
       })
     );
     expect(book.top[0].stamp).toMatch(/^closed \d\d:\d\d$/);
+  });
+
+  it("shows a closed venue's finished session when the bars are a session behind", () => {
+    // 0100.HK after the close: today's quote, no bar for today yet. The row must
+    // show today's move against yesterday's stored close, stamped as today's
+    // close, not yesterday's bar.
+    const now = Date.UTC(2026, 9, 8, 19, 0); // a Thursday evening
+    const closedAt = Math.floor(now / 1000) - 10 * 3_600;
+    const bars = endingToday(series(0.01), now - DAY * 1000); // last bar Wednesday
+    const lastClose = bars[bars.length - 1].close;
+    const book = buildPulseBook(
+      input({
+        symbols: ['A'],
+        now,
+        daily: { A: bars },
+        quotes: {
+          A: state({
+            quote: quote({
+              symbol: 'A',
+              isOpen: false,
+              marketState: 'closed',
+              price: lastClose * 0.9,
+              // A stale previousClose (as Yahoo serves for ^HSI) must not leak in.
+              previousClose: lastClose * 1.2,
+              changePercent: -25,
+              marketTime: closedAt,
+              regularWindow: { start: closedAt - 28_800, end: closedAt },
+            }),
+          }),
+        },
+      })
+    );
+    const row = book.assets[0];
+    expect(row.sigma?.kind === 'scored' && row.sigma.basis).toBe('behind');
+    expect(row.changePct).toBeCloseTo(-10);
+    expect(row.price).toBeCloseTo(lastClose * 0.9);
+    expect(row.score!).toBeLessThan(0);
+    expect(row.stamp).toMatch(/^closed \d\d:\d\d$/);
   });
 
   it("stamps an older session as yesterday's close", () => {

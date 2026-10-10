@@ -49,8 +49,11 @@ export function sessionBadge(
 
 /** Signed number, e.g. "+1.23", "-0.50", "0.00" (no plus when flat/negative). */
 export function signed(value: number, decimals = 2): string {
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(decimals)}`;
+  const fixed = value.toFixed(decimals);
+  // A move that rounds to zero prints as zero: "-0.0" and "+0.00" claim a
+  // direction the shown digits don't have.
+  if (Number(fixed) === 0) return (0).toFixed(decimals);
+  return `${value > 0 ? '+' : ''}${fixed}`;
 }
 
 /** Signed percent, e.g. "+1.23%", "-0.50%", "0.00%". */

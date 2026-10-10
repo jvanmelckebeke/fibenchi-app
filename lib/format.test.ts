@@ -3,6 +3,7 @@ import {
   currencySymbol,
   formatCompactPrice,
   formatPrice,
+  signedPercent,
   type PriceFormat,
 } from './format';
 
@@ -83,5 +84,15 @@ describe('formatCompactPrice', () => {
 
   it('does not scale an index', () => {
     expect(formatCompactPrice(5123.45, { symbol: '^GSPC' })).toBe('5,123.45');
+  });
+});
+
+describe('signedPercent', () => {
+  it('signs real moves and prints a move that rounds to zero as plain zero', () => {
+    expect(signedPercent(1.234, 1)).toBe('+1.2%');
+    expect(signedPercent(-0.5)).toBe('-0.50%');
+    expect(signedPercent(-0.04, 1)).toBe('0.0%');
+    expect(signedPercent(0.001)).toBe('0.00%');
+    expect(signedPercent(0)).toBe('0.00%');
   });
 });

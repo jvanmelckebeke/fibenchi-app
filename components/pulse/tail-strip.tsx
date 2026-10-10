@@ -18,11 +18,12 @@ interface TailStripProps {
  * bar, shorten the string again — a layout that oscillates on every digit
  * boundary. Fixing the column breaks the loop.
  */
-const LABEL_WIDTH = 68;
+const LABEL_WIDTH = 92;
 
 /**
  * Everything past the five, as one bar per asset coloured by its σ, then
- * `39 more ›`.
+ * `+46 quieter ›`: the count of assets that didn't fit, which are the calmest
+ * since the strip runs |σ|-desc. It counts what is not drawn, not the bars.
  *
  * Deliberately **not** a second list. Ranks 6–13 as slim rows was prototyped and
  * costs no extra fetches, but it contradicts the screen's whole claim: empty
@@ -49,8 +50,7 @@ export function TailStrip({ assets, dim, onPress }: TailStripProps) {
       <View
         className="flex-1 flex-row items-end overflow-hidden"
         style={{ gap: TAIL_GAP, opacity: dim ? 0.5 : 1 }}
-        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-      >
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
         {assets.slice(0, drawn).map((asset) => (
           <View
             key={asset.symbol}
@@ -65,11 +65,10 @@ export function TailStrip({ assets, dim, onPress }: TailStripProps) {
       </View>
       <Text
         className="shrink-0 text-right text-xs text-muted-foreground"
-        style={{ width: LABEL_WIDTH }}
-      >
+        style={{ width: LABEL_WIDTH }}>
         {/* Nothing is hidden once the whole tail is drawn, so the label stops
             claiming a remainder and just offers the way through. */}
-        {remaining > 0 ? `${remaining} more ›` : 'see all ›'}
+        {remaining > 0 ? `+${remaining} quieter ›` : 'see all ›'}
       </Text>
     </Pressable>
   );

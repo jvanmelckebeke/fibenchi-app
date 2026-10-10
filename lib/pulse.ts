@@ -60,8 +60,16 @@ export interface PulseBook {
   tail: PulseAsset[];
   /** Everything with no reading, for the coverage panel. */
   unscored: PulseAsset[];
+  /** Every asset in `symbols` order, scored or not — the Board's tiles. */
+  assets: PulseAsset[];
   breadth: PulseBreadth;
   scored: number;
+  /**
+   * Assets whose daily bars are still in flight. Quotes land before bars, so a
+   * cold open has every % and few σ; without this count "12 of 88 scored" reads
+   * like 76 problems instead of 76 arrivals.
+   */
+  pending: number;
   total: number;
   /** Newest quote timestamp across the book (epoch ms), or null. */
   lastGoodAt: number | null;
@@ -98,11 +106,16 @@ function dayReturn(quote: Quote | undefined): number | null {
  * deliberately omitted — the dot already says "closed" and the ticker suffix
  * carries the venue; what's missing is *when*.
  */
-function stampFor(quote: Quote | undefined, bar: OhlcBar | undefined, now: number): string | null {
+function stampFor(
+  quote: Quote | undefined,
+  sessionTimeSec: number | undefined,
+  now: number
+): string | null {
   if (!quote || quote.isOpen) return null;
-  // Which session the number is from is a question about the *bar*, not the
-  // clock: a bar dated today means today's session has already run and closed.
-  const ranToday = bar !== undefined && utcDay(bar.time) === utcDay(Math.floor(now / 1000));
+  // Which session the number is from is a question about the *data*, not the
+  // clock: a session dated today means today's session has already run and closed.
+  const ranToday =
+    sessionTimeSec !== undefined && utcDay(sessionTimeSec) === utcDay(Math.floor(now / 1000));
   const end = quote.regularWindow?.end;
   if (ranToday) return end !== undefined ? `closed ${sessionTime(end)}` : 'closed';
   return "yesterday's close";
@@ -131,13 +144,15 @@ function asset(symbol: string, input: PulseInput): PulseAsset {
   const live = quote
     ? {
         dayReturn: dayReturn(quote),
+        price: quote.price,
         sessionOpen: quote.isOpen,
         asOf: quote.marketTime || Math.floor(input.now / 1000),
       }
     : null;
   const sigma = bars && bars.length >= 2 ? sigmaMove(bars, live) : null;
   const scored = sigma?.kind === 'scored' ? sigma.sigma : null;
-  const onLiveBasis = sigma?.kind === 'scored' && sigma.basis === 'live';
+  const basis = sigma?.kind === 'scored' ? sigma.basis : null;
+  const onLiveBasis = basis === 'live';
 
   // The bar the σ is about — the row's price and % come from the same place, so
   // the two halves of a row can't be about different sessions.
@@ -150,16 +165,32 @@ function asset(symbol: string, input: PulseInput): PulseAsset {
     sigma,
     rank: scored === null ? null : Math.abs(scored),
     score: scored,
-    price: onLiveBasis ? (quote?.price ?? null) : (scoredBar?.close ?? quote?.price ?? null),
+    price:
+      onLiveBasis || basis === 'behind'
+        ? (quote?.price ?? null)
+        : (scoredBar?.close ?? quote?.price ?? null),
     changePct: onLiveBasis
       ? (quote?.changePercent ?? null)
-      : (barChangePct(scoredBar, priorBar) ?? quote?.changePercent ?? null),
+      : basis === 'behind'
+        ? (quoteVsBarPct(quote, scoredBar) ?? null)
+        : (barChangePct(scoredBar, priorBar) ?? quote?.changePercent ?? null),
     live: quote?.isOpen === true,
-    stamp: stampFor(quote, scoredBar ?? bars?.[bars.length - 1], input.now),
+    // On `behind` the number is the quote's session, which has no bar yet.
+    stamp: stampFor(
+      quote,
+      basis === 'behind' && quote ? quote.marketTime : (scoredBar ?? bars?.[bars.length - 1])?.time,
+      input.now
+    ),
     unscored: unscoredReason(state, sigma),
     misses: state?.misses ?? 0,
     updatedAt: state?.updatedAt ?? null,
   };
+}
+
+/** The quote's price against a stored close, for the `behind` basis. */
+function quoteVsBarPct(quote: Quote | undefined, bar: OhlcBar | undefined): number | null {
+  if (!quote || !bar || bar.close === 0) return null;
+  return (quote.price / bar.close - 1) * 100;
 }
 
 /** A completed session's own move, for rows whose venue isn't trading. */
@@ -217,8 +248,10 @@ export function buildPulseBook(input: PulseInput): PulseBook {
     top: ranked.slice(0, PULSE_ROWS),
     tail: ranked.slice(PULSE_ROWS),
     unscored: assets.filter((a) => a.unscored !== null),
+    assets,
     breadth,
     scored: ranked.length,
+    pending: assets.filter((a) => a.sigma === null && a.unscored === null).length,
     total: input.symbols.length,
     lastGoodAt,
     offlineFor: offlineFor(assets, lastGoodAt, input),

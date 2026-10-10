@@ -26,7 +26,7 @@ interface BreadthHeaderProps {
 export function BreadthHeader({ book, now }: BreadthHeaderProps) {
   const theme = useTheme();
   const [showCoverage, setShowCoverage] = useState(false);
-  const { breadth, scored, total, offlineFor, lastGoodAt } = book;
+  const { breadth, scored, pending, total, offlineFor, lastGoodAt } = book;
   const offline = offlineFor !== null;
 
   return (
@@ -59,7 +59,8 @@ export function BreadthHeader({ book, now }: BreadthHeaderProps) {
             textDecorationStyle: 'dashed',
             textDecorationColor: theme.mutedForeground,
           }}>
-          {scored} of {total} scored {showCoverage ? '▴' : '▾'}
+          {scored} of {total} scored{pending > 0 ? ` · ${pending} loading` : ''}{' '}
+          {showCoverage ? '▴' : '▾'}
         </Text>
       </Pressable>
 
