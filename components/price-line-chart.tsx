@@ -2,7 +2,12 @@ import { Inter_400Regular } from '@expo-google-fonts/inter';
 import { Circle, DashPathEffect, Line as SkiaLine, useFont, vec } from '@shopify/react-native-skia';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { useAnimatedReaction, useDerivedValue, runOnJS, type SharedValue } from 'react-native-reanimated';
+import {
+  useAnimatedReaction,
+  useDerivedValue,
+  runOnJS,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { CartesianChart, Line, useChartPressState } from 'victory-native';
 
 import { Text } from '@/components/ui/text';
@@ -140,7 +145,10 @@ export function PriceLineChart({
                 segments.map((segment, i) => (
                   <Line
                     key={`${segment.from}-${i}`}
-                    points={cp.price.slice(segment.from, (segments[i + 1]?.from ?? cp.price.length - 1) + 1)}
+                    points={cp.price.slice(
+                      segment.from,
+                      (segments[i + 1]?.from ?? cp.price.length - 1) + 1
+                    )}
                     color={skiaColor(segment.color)}
                     strokeWidth={2}
                   />
@@ -166,7 +174,17 @@ export function PriceLineChart({
   );
 }
 
-function Baseline({ y, left, right, color }: { y: number; left: number; right: number; color: string }) {
+function Baseline({
+  y,
+  left,
+  right,
+  color,
+}: {
+  y: number;
+  left: number;
+  right: number;
+  color: string;
+}) {
   return (
     <SkiaLine p1={vec(left, y)} p2={vec(right, y)} color={color} strokeWidth={1}>
       <DashPathEffect intervals={[4, 4]} />
