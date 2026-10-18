@@ -78,15 +78,23 @@ describe('buildBoard', () => {
     ]);
   });
 
-  it('ranks each section by the reading on show, unread last', () => {
+  it('ranks each section by the size of the reading on show, unread last', () => {
     const sigma = buildBoard(ASSETS, SECTIONS, 'sigma', 'all', {}, NOW);
     expect(sigma.sections[2].tiles.map((t) => t.asset.symbol)).toEqual(['NVDA', 'NEW', 'SLOW']);
-    const crowd = [asset('A', -1.5, 4), asset('B', 0.2, -3), asset('C', 2.4, 1)];
-    const section = [{ title: 'S', symbols: ['A', 'B', 'C'] }];
+    const crowd = [
+      asset('A', -1.5, 4),
+      asset('B', 0.2, -3),
+      asset('C', 2.4, 1),
+      asset('D', -3.1, -0.5),
+      asset('E', 0, null),
+      asset('F', null, 0),
+    ];
+    const section = [{ title: 'S', symbols: ['A', 'B', 'C', 'D', 'E', 'F'] }];
     const bySigma = buildBoard(crowd, section, 'sigma', 'all', {}, NOW).sections[0];
     const byPct = buildBoard(crowd, section, 'pct', 'all', {}, NOW).sections[0];
-    expect(bySigma.tiles.map((t) => t.asset.symbol)).toEqual(['C', 'B', 'A']);
-    expect(byPct.tiles.map((t) => t.asset.symbol)).toEqual(['A', 'C', 'B']);
+    // A null reading goes last, behind a real 0.
+    expect(bySigma.tiles.map((t) => t.asset.symbol)).toEqual(['D', 'C', 'A', 'B', 'E', 'F']);
+    expect(byPct.tiles.map((t) => t.asset.symbol)).toEqual(['A', 'B', 'C', 'D', 'F', 'E']);
   });
 
   it('reads σ or today % by mode', () => {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 
 import { indicatorHistoryPeriod } from '@/lib/compute';
-import { fetchPulse, pulseBars } from '@/lib/config/pulse';
+import { fetchPulse, pulseBars, type CompanionPulse } from '@/lib/config/pulse';
 import { market, type OhlcBar } from '@/lib/market';
 import type { MoveScales } from '@/lib/move-scale';
 
@@ -32,6 +32,27 @@ const STALE_MS = 60 * 60_000;
 const isStale = (symbol: string, now: number) => now - (fetchedAt.get(symbol) ?? 0) > STALE_MS;
 
 /**
+ * When the last bundle request failed. Its symbols' bars came from Yahoo, which
+ * has no scales, so the move bars stay empty until a bundle lands. The book's
+ * bars are an hour from going stale; this retries for the scales alone.
+ */
+let pulseFailedAt: number | null = null;
+const PULSE_RETRY_MS = 60_000;
+
+/** Records the bundle's outcome and takes its scales; true when any arrived. */
+function takeScales(pulse: CompanionPulse | null, symbols: string[]): boolean {
+  pulseFailedAt = pulse ? null : Date.now();
+  let taken = false;
+  for (const symbol of symbols) {
+    const moveScale = pulse?.symbols[symbol]?.moveScale;
+    if (!moveScale) continue;
+    scales.set(symbol, moveScale);
+    taken = true;
+  }
+  return taken;
+}
+
+/**
  * Daily bars per symbol, filling in as they arrive. Symbols already fetched are
  * served from the module map, so navigating back to the screen doesn't re-fetch
  * or re-flash an empty book.
@@ -60,11 +81,11 @@ export function useDailyBook(
     void (async () => {
       // One request to Fibenchi covers the book; Yahoo only fills what it lacks.
       const pulse = await fetchPulse(endpoint);
+      if (takeScales(pulse, symbols)) bumpBook();
       if (cancelled) return;
       const rest: string[] = [];
       for (const symbol of missing) {
         const entry = pulse?.symbols[symbol];
-        if (entry?.moveScale) scales.set(symbol, entry.moveScale);
         const series = entry ? pulseBars(entry) : null;
         if (series) store(symbol, series);
         else rest.push(symbol);
@@ -82,6 +103,19 @@ export function useDailyBook(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, endpoint]);
+
+  // After a failed bundle, ask again on a later book revision, for the scales only.
+  useEffect(() => {
+    const now = Date.now();
+    if (pulseFailedAt === null || now - pulseFailedAt < PULSE_RETRY_MS) return;
+    if (symbols.every((symbol) => scales.has(symbol))) return;
+    // Claimed now, so the other book readers don't send a second request.
+    pulseFailedAt = now;
+    void fetchPulse(endpoint).then((pulse) => {
+      if (takeScales(pulse, symbols)) bumpBook();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, endpoint, revision]);
 
   return useMemo(() => {
     const book: Record<string, OhlcBar[] | undefined> = {};
