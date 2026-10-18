@@ -67,6 +67,7 @@
     "@babel/core": "^7.26.0",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.10",
+    "@types/react-test-renderer": "^19.1.0",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~55.0.1",
     "eslint-config-prettier": "^10.1.8",
@@ -74,6 +75,7 @@
     "jest-expo": "~55.0.0",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
+    "react-test-renderer": "19.2.0",
     "typescript": "~5.9.2"
   },
   "private": true,
