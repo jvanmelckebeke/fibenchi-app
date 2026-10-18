@@ -46,8 +46,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [endpoint, setEndpointState] = useState<string | null>(resolveInitialEndpoint);
   const [status, setStatus] = useState<SyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(() => storage.getLastSyncedAt() ?? null);
-  const [activeGroup, setActiveGroup] = useState<string | null>(() => orderedGroups(config)[0]?.name ?? null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(
+    () => storage.getLastSyncedAt() ?? null
+  );
+  const [activeGroup, setActiveGroup] = useState<string | null>(
+    () => orderedGroups(config)[0]?.name ?? null
+  );
 
   const runSync = useCallback((url: string) => {
     setStatus('syncing');

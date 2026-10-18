@@ -18,7 +18,7 @@ Three planes, deliberately decoupled:
 - **Compute plane — on device.** RSI / MACD / SMA / movement are computed in TS
   from OHLC. `movement-stats.ts` is ported ~verbatim from Fibenchi; `indicators.py`
   is ported to TS behind a data-driven registry (one struct per indicator).
-- **Config plane — paired Fibenchi endpoint.** The app learns *what to track*
+- **Config plane — paired Fibenchi endpoint.** The app learns _what to track_
   (groups/tickers) from a Fibenchi endpoint entered on first launch, persisted
   locally, re-synced daily-if-reachable + on demand. That endpoint is the only
   coupling to Fibenchi — keep the contract explicit.
@@ -75,7 +75,7 @@ Finance color classes: `text-gain`/`bg-gain` (up), `text-loss` (down),
 - `npm run dev` — Expo dev server
 - `npm run android` — run on a device/emulator
 - `npm run typecheck` — `tsc --noEmit`
-- `npm run lint` / `npm run format`
+- `npm run lint` — eslint, then `prettier --check .`; `npm run format` fixes formatting
 - `npm test` — jest
 - `npx @react-native-reusables/cli@latest add <component>` — add a UI primitive
 - Build APK: `npx eas-cli build -p android --profile preview`

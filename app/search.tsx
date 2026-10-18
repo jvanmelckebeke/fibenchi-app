@@ -38,7 +38,11 @@ export default function SearchScreen() {
       for (const r of yahoo) out.push({ key: `y-${r.symbol}`, kind: 'result', result: r });
     }
     if (trimmed.length > 0 && local.length === 0 && yahoo.length === 0) {
-      out.push({ key: 'note', kind: 'note', text: loading ? 'Searching…' : `No matches for “${trimmed}”` });
+      out.push({
+        key: 'note',
+        kind: 'note',
+        text: loading ? 'Searching…' : `No matches for “${trimmed}”`,
+      });
     }
     return out;
   }, [local, yahoo, loading, trimmed]);
@@ -84,13 +88,20 @@ export default function SearchScreen() {
               );
             }
             if (item.kind === 'note') {
-              return <Text className="px-4 py-6 text-center text-sm text-muted-foreground">{item.text}</Text>;
+              return (
+                <Text className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  {item.text}
+                </Text>
+              );
             }
             return (
               <ResultRow
                 result={item.result}
                 onPress={() =>
-                  router.push({ pathname: '/asset/[symbol]', params: { symbol: item.result.symbol } })
+                  router.push({
+                    pathname: '/asset/[symbol]',
+                    params: { symbol: item.result.symbol },
+                  })
                 }
               />
             );
@@ -104,7 +115,9 @@ export default function SearchScreen() {
 function ResultRow({ result, onPress }: { result: SymbolSearchResult; onPress: () => void }) {
   const badge = result.tracked
     ? 'Tracked'
-    : [result.exchange, result.type !== 'other' ? result.type.toUpperCase() : null].filter(Boolean).join(' · ');
+    : [result.exchange, result.type !== 'other' ? result.type.toUpperCase() : null]
+        .filter(Boolean)
+        .join(' · ');
 
   return (
     <Pressable
