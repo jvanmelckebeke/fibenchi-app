@@ -71,7 +71,17 @@ export function RsiChart({ data }: RsiChartProps) {
   );
 }
 
-function Guide({ y, left, right, color }: { y: number; left: number; right: number; color: string }) {
+function Guide({
+  y,
+  left,
+  right,
+  color,
+}: {
+  y: number;
+  left: number;
+  right: number;
+  color: string;
+}) {
   return (
     <SkiaLine p1={vec(left, y)} p2={vec(right, y)} color={color} strokeWidth={1}>
       <DashPathEffect intervals={[4, 4]} />

@@ -1,5 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Pressable, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -53,11 +59,14 @@ export function SwipeReveal({
   const min = revealLeft ? -1 : 0;
   const max = reveal ? 1 : 0;
 
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    const lw = event.nativeEvent.layout.width;
-    w.value = lw;
-    setWidth((prev) => (prev === lw ? prev : lw));
-  }, [w]);
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const lw = event.nativeEvent.layout.width;
+      w.value = lw;
+      setWidth((prev) => (prev === lw ? prev : lw));
+    },
+    [w]
+  );
 
   const close = useCallback(() => {
     progress.value = withTiming(0, SETTLE, (finished) => {

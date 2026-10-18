@@ -69,8 +69,18 @@ export function MacdChart({ data }: MacdChartProps) {
           domainPadding={{ left: 16, right: 16, top: 4, bottom: 4 }}>
           {({ points, chartBounds }) => (
             <>
-              <Bar points={points.histUp} chartBounds={chartBounds} color={skiaColor(theme.gain)} innerPadding={0.3} />
-              <Bar points={points.histDown} chartBounds={chartBounds} color={skiaColor(theme.loss)} innerPadding={0.3} />
+              <Bar
+                points={points.histUp}
+                chartBounds={chartBounds}
+                color={skiaColor(theme.gain)}
+                innerPadding={0.3}
+              />
+              <Bar
+                points={points.histDown}
+                chartBounds={chartBounds}
+                color={skiaColor(theme.loss)}
+                innerPadding={0.3}
+              />
               <Line points={points.macd} color={skiaColor(theme.chart1)} strokeWidth={1.5} />
               <Line points={points.signal} color={skiaColor(theme.chart3)} strokeWidth={1.5} />
             </>

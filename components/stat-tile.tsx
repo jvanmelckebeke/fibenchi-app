@@ -13,7 +13,9 @@ export function StatTile({ label, value, color }: StatTileProps) {
   return (
     <View className="min-w-[30%] flex-1 rounded-lg bg-card p-3">
       <Text className="text-xs text-muted-foreground">{label}</Text>
-      <Text className="mt-0.5 text-base font-semibold text-foreground" style={color ? { color } : undefined}>
+      <Text
+        className="mt-0.5 text-base font-semibold text-foreground"
+        style={color ? { color } : undefined}>
         {value}
       </Text>
     </View>

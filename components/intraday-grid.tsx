@@ -2,7 +2,13 @@ import { View } from 'react-native';
 
 import { StatTile } from '@/components/stat-tile';
 import type { IntradayStats } from '@/lib/compute';
-import { formatPrice, sessionBadge, signedPercent, trendColor, type PriceFormat } from '@/lib/format';
+import {
+  formatPrice,
+  sessionBadge,
+  signedPercent,
+  trendColor,
+  type PriceFormat,
+} from '@/lib/format';
 import type { MarketState } from '@/lib/market';
 import { useTheme } from '@/lib/theme';
 
