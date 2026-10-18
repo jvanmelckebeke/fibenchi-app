@@ -272,7 +272,9 @@ export function volatilityNormalizedReturn(
   const variance = ewmWithHoles(squared, 1 - lam, warmup);
   const floor =
     sigmaFloorFrac > 0
-      ? expandingStd(usable, sigmaFloorMinObs).map((sd) => (sd === null ? null : sd * sigmaFloorFrac))
+      ? expandingStd(usable, sigmaFloorMinObs).map((sd) =>
+          sd === null ? null : sd * sigmaFloorFrac
+        )
       : closes.map(() => null);
 
   const vnrSigma = variance.map((v, i) => {
