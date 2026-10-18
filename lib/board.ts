@@ -55,14 +55,14 @@ export interface BoardView {
 export const isOpen = (asset: PulseAsset) => asset.quote?.marketState === 'regular';
 
 /**
- * Strongest up first, strongest down last, in whichever reading the mode shows,
- * so a section reads as a ranking. Tiles with no reading go to the end.
+ * Biggest move first, up or down, in whichever reading the mode shows, so a
+ * section reads as a ranking. Tiles with no reading go to the end.
  */
 function byReading(a: BoardTile, b: BoardTile): number {
   if (a.value === null || b.value === null) {
     if (a.value !== b.value) return a.value === null ? 1 : -1;
-  } else if (a.value !== b.value) {
-    return b.value - a.value;
+  } else if (Math.abs(a.value) !== Math.abs(b.value)) {
+    return Math.abs(b.value) - Math.abs(a.value);
   }
   return a.asset.symbol.localeCompare(b.asset.symbol);
 }
