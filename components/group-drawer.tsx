@@ -18,7 +18,9 @@ export function GroupDrawer(props: DrawerContentComponentProps) {
   const groups = useMemo(() => orderedGroups(config), [config]);
 
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
+    // flexGrow, not flex: the footer still sits at the bottom of a short list,
+    // and a list taller than the screen scrolls instead of being cut off.
+    <DrawerContentScrollView {...props} contentContainerStyle={{ flexGrow: 1 }}>
       <Text className="px-4 pb-3 pt-2 text-xl font-bold text-foreground">Fibenchi</Text>
 
       {/* The Pulse and the Board are pinned above the group list, not part of
